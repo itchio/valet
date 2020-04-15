@@ -16,7 +16,7 @@ fn build_libbutler() -> Result<(), Box<dyn Error>> {
     println!("cargo:rustc-link-lib={}", "butler");
     println!("cargo:rustc-link-search={}", lib_dir.display());
 
-    // linux only?
+    #[cfg(linux)]
     println!("cargo:rustc-cdylib-link-arg=-Wl,-rpath=$ORIGIN");
 
     // let out_dir = PathBuf::from(env::var("OUT_DIR")?);

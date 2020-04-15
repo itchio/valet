@@ -20,4 +20,8 @@ Just need to remove a few lines that have too-complicated symbols:
 cat butler.def | grep -v -E '[;{]' >! butler2.def && wc -l butler2.def
 ```
 
+## macOS
+
+The dylib must have its `id` changed so that when we link against it, the executable
+has the right name, aka `@loader_path/libbutler.dylib`
 
