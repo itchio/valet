@@ -5,7 +5,7 @@ authors = ["Amos Wenger <amoswenger@gmail.com>"]
 license = "MIT"
 build = "build.rs"
 edition = "2018"
-exclude = ["artifacts.json", "index.node"]
+exclude = ["artifacts.json", "index.node", "butler.dll", "libbutler.so", "libbutler.dylib"]
 
 [lib]
 name = "valet"
