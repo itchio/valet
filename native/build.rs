@@ -33,7 +33,7 @@ fn build_libbutler() -> Result<(), Box<dyn Error>> {
     }
 
     let mut cmd = Command::new("ar");
-    cmd.args(&["-s", "libbutler.a"]);
+    cmd.args(&["-s", lib_path.to_str().unwrap()]);
     let output = cmd.output()?;
     if !output.status.success() {
         panic!(
