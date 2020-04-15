@@ -1,59 +1,221 @@
 extern crate neon_build;
-use std::{env, error::Error, path::PathBuf, process::Command};
+use std::{
+    env,
+    error::Error,
+    fs,
+    path::{Path, PathBuf},
+    process::Command,
+};
 
 fn main() {
     neon_build::setup();
     build_libbutler().unwrap();
 }
 
-fn build_libbutler() -> Result<(), Box<dyn Error>> {
-    println!("cargo:warning={}", "experimental libbutler build");
+trait CopyTo {
+    fn copy_to<D: AsRef<Path>>(&self, dest: D);
+}
 
-    let pwd = env::current_dir().unwrap();
-    let lib_dir = pwd.parent().unwrap().join("libbutler");
-    println!("cargo:warning=libdir = {}", lib_dir.display());
+impl<T> CopyTo for T
+where
+    T: AsRef<Path>,
+{
+    fn copy_to<D: AsRef<Path>>(&self, dest: D) {
+        let src = self.as_ref();
+        let parent = src.parent().unwrap();
+        fs::create_dir_all(parent).unwrap();
+        fs::copy(src, dest).unwrap();
+    }
+}
+
+trait RunAndCheck {
+    fn run_and_check(&mut self);
+}
+
+impl RunAndCheck for Command {
+    fn run_and_check(&mut self) {
+        let output = self.output().unwrap();
+        if !output.status.success() {
+            panic!(
+                "Command returned non-zero exit code {:?}:\n {}",
+                output.status,
+                std::str::from_utf8(&output.stderr).unwrap()
+            );
+        }
+    }
+}
+
+fn build_libbutler() -> Result<(), Box<dyn Error>> {
+    let runtime_dir = env::current_dir().unwrap();
+    let out_dir = PathBuf::from(env::var("OUT_DIR")?);
+    let link_dir = out_dir.join("libbutler-prefix");
 
     println!("cargo:rustc-link-lib={}", "butler");
-    println!("cargo:rustc-link-search={}", lib_dir.display());
+    println!("cargo:rustc-link-search={}", link_dir.display());
 
-    #[cfg(linux)]
-    println!("cargo:rustc-cdylib-link-arg=-Wl,-rpath=$ORIGIN");
+    let mut go_build_args: Vec<String> =
+        vec!["build".into(), "-v".into(), "-buildmode=c-shared".into()];
+    let go_pkg = "../libbutler".to_string();
 
-    // let out_dir = PathBuf::from(env::var("OUT_DIR")?);
-    // let lib_dir = out_dir.join("libbutler-prefix");
-    // println!("cargo:rustc-link-lib={}", "butler");
-    // println!("cargo:rustc-link-search={}", lib_dir.display());
+    cfg_if::cfg_if! {
+        if #[cfg(target_os = "macos")] {
+            let lib_name = "libbutler.dylib";
+            let link_lib_path = link_search_dir.join(lib_name);
+            go_build_args.push(format!("-o={}", link_lib_path.display()));
+            go_build_args.push(go_pkg);
+            Command::new("go").args(&go_build_args).run_and_check();
 
-    // let lib_path = lib_dir.join("libbutler.a");
+            // macOS folklore: need a post-linker tool to adjust the "load
+            // directives" so it's relative to `index.node`'s path
+            Command::new("install_name_tool").args(&[
+                "-id",
+                "@loader_path/libbutler.dylib",
+                link_lib_path,
+            ]).run_and_check();
 
-    // let dasho_arg = format!("-o={}", lib_path.display());
-    // let mut cmd = Command::new("go");
-    // cmd.args(&[
-    //     "build",
-    //     "-v",
-    //     "-buildmode=c-archive",
-    //     &dasho_arg,
-    //     "../libbutler",
-    // ]);
-    // let output = cmd.output()?;
-    // if !output.status.success() {
-    //     panic!(
-    //         "Could not build libbutler (status {:?}):\n {}",
-    //         output.status,
-    //         std::str::from_utf8(&output.stderr)?
-    //     );
-    // }
+            let runtime_lib_path = runtime_dir.join(lib_name);
+            link_lib_path.copy_to(runtime_lib_path);
+        } else if #[cfg(target_os = "linux")] {
+            let lib_name = "libbutler.so";
+            let link_lib_path = link_dir.join(lib_name);
+            go_build_args.push(format!("-o={}", link_lib_path.display()));
+            go_build_args.push(go_pkg);
+            Command::new("go").args(&go_build_args).run_and_check();
 
-    // let mut cmd = Command::new("ar");
-    // cmd.args(&["-s", lib_path.to_str().unwrap()]);
-    // let output = cmd.output()?;
-    // if !output.status.success() {
-    //     panic!(
-    //         "Could not build libbutler (status {:?}):\n {}",
-    //         output.status,
-    //         std::str::from_utf8(&output.stderr).unwrap()
-    //     );
-    // }
+            // Linux folklore: just pass a linker argument so the executable
+            // has its own directory in its "library search path"
+            println!("cargo:rustc-cdylib-link-arg=-Wl,-rpath=$ORIGIN");
+
+            let runtime_lib_path = runtime_dir.join(lib_name);
+            link_lib_path.copy_to(runtime_lib_path);
+        } else if #[cfg(target_os = "windows")] {
+            let runtime_lib_name = "butler.dll";
+            let runtime_lib_path = runtime_dir.join(lib_name);
+
+            let import_lib_name = "butler.lib";
+            let import_lib_path = link_dir.join(import_lib_path);
+            let def_gen_path = link_dir.join("butler.def.gen");
+            let def_path = link_dir.join("butler.def");
+
+            // Pieces of the puzzle: Go uses gcc, generates a `.dll`. To link
+            // against a `.dll`, one needs.. an import library, ie. a `.lib` To
+            // make an import library, one needs to call the `lib.exe` utility
+            // from MSVC with a `.def` file. Such a file can be generated by
+            // mingw-ld with `--output-def`. It's easy really!
+
+            go_build_args.push(format!("-o={}", link_lib_path.display()));
+            go_build_args.push("-ldflags".into());
+            go_build_args.push(format!("-extldflags -Wl,--output-def,{}", link_def_gen_path.display()));
+            go_build_args.push(go_pkg);
+            Command::new("go").args(&go_build_args).run_and_check();
+
+            // Now, Go being Go, it has funky symbol names - some of which `lib.exe`
+            // will reject. So we just filter those out from the generated `.def` file
+            {
+                use std::io::Read;
+                let mut input = File::open(&link_def_gen_path)?;
+                let mut output = File::create(&link_def_path);
+                let forbidden_chars = ['{', ';'];
+                for line in input.lines() {
+                    if forbidden_chars.iter().any(|&c| line.contains(c)) {
+                        continue;
+                    }
+                    writeln!(output, "{}", line);
+                }
+            }
+
+            // Now we just have to generate the `.lib` from the `.def`
+            let lib_exe_path = find_lib_exe().expect("need an install of MSVC with lib.exe in it");
+            Command::new(lib_exe_path).args(&[
+                format!("/def:{}", link_def_path.display()),
+                format!("/out:{}", import_lib_path.display()),
+                // TODO: 32-bit support
+                "/machine:x64",
+            ]).run_and_check()h;
+
+            // Windows folklore: just drop it next to the executable (or in this
+            // case, the other library that is `index.node`)
+            let runtime_lib_path = runtime_dir.join(lib_name);
+            link_lib_path.copy_to(runtime_lib_path);
+        } else {
+            panic!("Only macOS, Linux and Windows are supported");
+        }
+    }
 
     Ok(())
+}
+
+#[cfg(target_os = "windows")]
+fn find_lib_exe() -> Option<PathBuf> {
+    use std::io;
+
+    let pf86 = match std::env::var("ProgramFiles(x86)") {
+        Ok(res) => PathBuf::from(res),
+        Err(_) => {
+            log::debug!("No value for ProgramFiles(x86)");
+            return None;
+        }
+    };
+
+    let vswhere = pf86
+        .join("Microsoft Visual Studio")
+        .join("Installer")
+        .join("vswhere.exe");
+
+    let mut cmd = std::process::Command::new(vswhere);
+    cmd.arg("-latest");
+    let out = match cmd.output() {
+        Ok(res) => res,
+        Err(e) => {
+            log::debug!("While running vswhere: {:?}", e);
+            return None;
+        }
+    };
+
+    let s = match std::str::from_utf8(&out.stdout[..]) {
+        Ok(x) => x,
+        Err(e) => {
+            log::debug!("vswhere gave non-utf8 output: {:?}", e);
+            return None;
+        }
+    };
+
+    let prefix = "installationPath: ";
+    for line in s.lines() {
+        if line.starts_with(prefix) {
+            let value = line.replace(prefix, "");
+            let install_path = PathBuf::from(value);
+
+            let tools_path = install_path.join("VC").join("Tools").join("MSVC");
+            let f = || -> Result<_, io::Error> {
+                let versions = std::fs::read_dir(&tools_path)?
+                    .map(|r| r.map(|r| r.file_name()))
+                    .collect::<Result<Vec<_>, _>>()?;
+                for v in versions {
+                    // TODO: 32-bit support
+                    let lib_exe_path = tools_path
+                        .join(&v)
+                        .join("bin")
+                        .join("Hostx64")
+                        .join("x64")
+                        .join("lib.exe");
+                    if lib_exe_path.exists() {
+                        return Ok(Some(lib_exe_path));
+                    }
+                }
+                Ok(None)
+            };
+
+            match f() {
+                Ok(x) => {
+                    if let Some(x) = x {
+                        return Some(x);
+                    }
+                }
+                Err(e) => log::debug!("While looking for MSVC path: {:?}", e),
+            }
+        }
+    }
+
+    None
 }
