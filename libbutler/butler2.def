@@ -2075,10 +2075,6 @@ EXPORTS
     fmt.parseArgNumber @2074 DATA
     fmt.parsenum @2075 DATA
     fmt.ppFree @2076 DATA
-    "go.(*struct { sync.Mutex; math/big.table [64]math/big.divisor }).Lock" @2077 DATA
-    "go.(*struct { sync.Mutex; math/big.table [64]math/big.divisor }).Unlock" @2078 DATA
-    "go.(*struct { sync.Mutex; reflect.m sync.Map }).Lock" @2079 DATA
-    "go.(*struct { sync.Mutex; reflect.m sync.Map }).Unlock" @2080 DATA
     go.buildid @2081 DATA
     "go.itab.*bufio.Reader,compress/flate.Reader" @2082 DATA
     "go.itab.*bufio.Reader,io.Reader" @2083 DATA
@@ -7102,7 +7098,6 @@ EXPORTS
     type..eq.[11]float32 @7101 DATA
     type..eq.[12]string @7102 DATA
     type..eq.[131]string @7103 DATA
-    "type..eq.[134]struct { runtime.mcentral runtime.mcentral; runtime.pad [8]uint8 }" @7104 DATA
     type..eq.[137]string @7105 DATA
     type..eq.[137]time.abbr @7106 DATA
     type..eq.[15]internal/cpu.option @7107 DATA
@@ -7110,35 +7105,27 @@ EXPORTS
     type..eq.[1]time.zone @7109 DATA
     type..eq.[1]time.zoneTrans @7110 DATA
     type..eq.[23]float64 @7111 DATA
-    "type..eq.[251]struct { runtime.root runtime.semaRoot; runtime.pad [40]uint8 }" @7112 DATA
     type..eq.[26]string @7113 DATA
     type..eq.[27]string @7114 DATA
     type..eq.[2]encoding/asn1.encoder @7115 DATA
-    "type..eq.[2]interface {}" @7116 DATA
     type..eq.[2]io.Reader @7117 DATA
     type..eq.[2]runtime.Frame @7118 DATA
     type..eq.[2]runtime.gcSweepBuf @7119 DATA
     type..eq.[2]string @7120 DATA
-    "type..eq.[2]struct { runtime.item runtime.stackpoolItem; _ [40]uint8 }" @7121 DATA
     type..eq.[2]vendor/golang.org/x/text/secure/bidirule.ruleTransition @7122 DATA
     type..eq.[33]float64 @7123 DATA
     type..eq.[39]string @7124 DATA
     type..eq.[3]error @7125 DATA
-    "type..eq.[3]interface {}" @7126 DATA
     type..eq.[3]string @7127 DATA
-    "type..eq.[4]interface {}" @7128 DATA
     type..eq.[4]string @7129 DATA
-    "type..eq.[5]interface {}" @7130 DATA
     type..eq.[5]string @7131 DATA
     type..eq.[61]strconv.leftCheat @7132 DATA
     type..eq.[61]vendor/golang.org/x/net/http2/hpack.HeaderField @7133 DATA
     type..eq.[62]string @7134 DATA
     type..eq.[64]runtime.overlappedEntry @7135 DATA
-    "type..eq.[67]struct { runtime.size uint32; runtime.nmalloc uint64; runtime.nfree uint64 }" @7136 DATA
     type..eq.[6][2]vendor/golang.org/x/text/secure/bidirule.ruleTransition @7137 DATA
     type..eq.[6]string @7138 DATA
     type..eq.[7]string @7139 DATA
-    "type..eq.[7]struct { crypto/tls.scheme crypto/tls.SignatureScheme; crypto/tls.minModulusBytes int; crypto/tls.maxVersion uint16 }" @7140 DATA
     type..eq.[87]strconv.extFloat @7141 DATA
     type..eq.[8]strconv.extFloat @7142 DATA
     type..eq.[8]string @7143 DATA
@@ -7289,26 +7276,6 @@ EXPORTS
     type..eq.strconv.leftCheat @7288 DATA
     type..eq.strings.Reader @7289 DATA
     type..eq.strings.singleStringReplacer @7290 DATA
-    "type..eq.struct { _ vendor/golang.org/x/sys/cpu.CacheLinePad; HasAES bool; HasADX bool; HasAVX bool; HasAVX2 bool; HasBMI1 bool; HasBMI2 bool; HasERMS bool; HasFMA bool; HasOSXSAVE bool; HasPCLMULQDQ bool; HasPOPCNT bool; HasRDRAND bool; HasRDSEED bool; HasSSE2 bool; HasSSE3 bool; HasSSSE3 bool; HasSSE41 bool; HasSSE42 bool; _ vendor/golang.org/x/sys/cpu.CacheLinePad }" @7291 DATA
-    "type..eq.struct { crypto/tls.scheme crypto/tls.SignatureScheme; crypto/tls.minModulusBytes int; crypto/tls.maxVersion uint16 }" @7292 DATA
-    "type..eq.struct { internal/reflectlite.b bool; internal/reflectlite.x interface {} }" @7293 DATA
-    "type..eq.struct { reflect.b bool; reflect.x interface {} }" @7294 DATA
-    "type..eq.struct { runtime.cycle uint32; runtime.flushed bool }" @7295 DATA
-    "type..eq.struct { runtime.enabled bool; runtime.pad [3]uint8; runtime.needed bool; runtime.cgo bool; runtime.alignme uint64 }" @7296 DATA
-    "type..eq.struct { runtime.full runtime.lfstack; runtime.empty runtime.lfstack; runtime.pad0 internal/cpu.CacheLinePad; runtime.wbufSpans struct { runtime.lock runtime.mutex; runtime.free runtime.mSpanList; runtime.busy runtime.mSpanList }; _ uint32; runtime.bytesMarked uint64; runtime.markrootNext uint32; runtime.markrootJobs uint32; runtime.nproc uint32; runtime.tstart int64; runtime.nwait uint32; runtime.ndone uint32; runtime.nFlushCacheRoots int; runtime.nDataRoots int; runtime.nBSSRoots int; runtime.nSpanRoots int; runtime.nStackRoots int; runtime.startSema uint32; runtime.markDoneSema uint32; runtime.bgMarkReady runtime.note; runtime.bgMarkDone uint32; runtime.mode runtime.gcMode; runtime.userForced bool; runtime.totaltime int64; runtime.initialHeapLive uint64; runtime.assistQueue struct { runtime.lock runtime.mutex; runtime.q runtime.gQueue }; runtime.sweepWaiters struct { runtime.lock runtime.mutex; runtime.list runtime.gList }; runtime.cycles uint32; runtime.stwprocs int32; runtime.maxprocs int32; runtime.tSweepTerm int64; runtime.tMark int64; runtime.tMarkTerm int64; runtime.tEnd int64; runtime.pauseNS int64; runtime.pauseStart int64; runtime.heap0 uint64; runtime.heap1 uint64; runtime.heap2 uint64; runtime.heapGoal uint64 }" @7297 DATA
-    "type..eq.struct { runtime.gList; runtime.n int32 }" @7298 DATA
-    "type..eq.struct { runtime.item runtime.stackpoolItem; _ [40]uint8 }" @7299 DATA
-    "type..eq.struct { runtime.lock runtime.mutex; runtime.g *runtime.g; runtime.parked bool; runtime.timer *runtime.timer }" @7300 DATA
-    "type..eq.struct { runtime.lock runtime.mutex; runtime.newm runtime.muintptr; runtime.waiting bool; runtime.wake runtime.note; runtime.haveTemplateThread uint32 }" @7301 DATA
-    "type..eq.struct { runtime.lock runtime.mutex; runtime.stack runtime.gList; runtime.noStack runtime.gList; runtime.n int32 }" @7302 DATA
-    "type..eq.struct { runtime.lpFileName *uint16; runtime.hFile uintptr; runtime.flags uint32 }" @7303 DATA
-    "type..eq.struct { runtime.mcentral runtime.mcentral; runtime.pad [8]uint8 }" @7304 DATA
-    "type..eq.struct { runtime.note runtime.note; runtime.mask [3]uint32; runtime.wanted [3]uint32; runtime.ignored [3]uint32; runtime.recv [3]uint32; runtime.state uint32; runtime.delivering uint32; runtime.inuse bool }" @7305 DATA
-    "type..eq.struct { runtime.root runtime.semaRoot; runtime.pad [40]uint8 }" @7306 DATA
-    "type..eq.struct { runtime.size uint32; runtime.nmalloc uint64; runtime.nfree uint64 }" @7307 DATA
-    "type..eq.struct { runtime.user bool; runtime.runnable runtime.gQueue; runtime.n int32 }" @7308 DATA
-    "type..eq.struct { sync.Once; net.val int }" @7309 DATA
-    "type..eq.struct { syscall.once sync.Once; syscall.addr uintptr; syscall.err error }" @7310 DATA
     type..eq.sync.Cond @7311 DATA
     type..eq.sync.poolLocal @7312 DATA
     type..eq.sync.poolLocalInternal @7313 DATA
