@@ -61,7 +61,7 @@ fn build_libbutler() -> Result<(), Box<dyn Error>> {
     cfg_if::cfg_if! {
         if #[cfg(target_os = "macos")] {
             let lib_name = "libbutler.dylib";
-            let build_lib_path = link_search_dir.join(lib_name);
+            let build_lib_path = link_dir.join(lib_name);
             let runtime_lib_path = runtime_dir.join(lib_name);
             go_build_args.push(format!("-o={}", build_lib_path.display()));
             go_build_args.push(go_pkg);
@@ -69,11 +69,10 @@ fn build_libbutler() -> Result<(), Box<dyn Error>> {
 
             // macOS folklore: need a post-linker tool to adjust the "load
             // directives" so it's relative to `index.node`'s path
-            Command::new("install_name_tool").args(&[
-                "-id",
-                "@loader_path/libbutler.dylib",
-                build_lib_path,
-            ]).run_and_check();
+            Command::new("install_name_tool")
+                .args(&["-id", "@loader_path/libbutler.dylib"])
+                .arg(&build_lib_path)
+                .run_and_check();
 
             build_lib_path.copy_to(runtime_lib_path);
         } else if #[cfg(target_os = "linux")] {
