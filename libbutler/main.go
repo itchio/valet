@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+
+	"github.com/itchio/valet/libbutler/server"
 )
 
 import "C"
@@ -28,6 +30,11 @@ func PrintCountry() {
 	fmt.Printf("You are in: %s\n", cres.Country)
 
 	doPanic()
+}
+
+//export StartServer
+func StartServer() {
+	server.Start()
 }
 
 func doPanic() {

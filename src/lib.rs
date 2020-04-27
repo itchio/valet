@@ -4,8 +4,10 @@ use std::{ffi::CString, ptr};
 #[cfg(windows)]
 mod delayload;
 
+#[link(name = "butler", kind = "static")]
 extern "C" {
     fn PrintCountry();
+    fn StartServer();
 }
 
 #[no_mangle]
@@ -41,6 +43,7 @@ unsafe extern "C" fn init(env: sys::napi_env, exports: sys::napi_value) -> sys::
     println!("In init! exports = {:?}", exports);
 
     PrintCountry();
+    StartServer();
 
     let mut ret: sys::napi_value = ptr::null_mut();
     sys::napi_create_object(env, &mut ret);

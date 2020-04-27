@@ -35,7 +35,11 @@ fn golang() -> Result<(), Box<dyn Error>> {
         return Err("go compilation failed".into());
     }
 
-    println!("cargo:rustc-cdylib-link-arg={}", lib_path.display());
+    println!(
+        "cargo:rustc-link-search=static={}",
+        lib_path.parent().unwrap().display()
+    );
+    println!("cargo:rustc-link-link=pthread");
 
     Ok(())
 }
