@@ -5,33 +5,31 @@ use std::{ffi::CString, ptr};
 mod delayload;
 
 #[no_mangle]
-fn ctor() {
-    println!("Hello from vallet");
+unsafe fn ctor() {
+    println!("Hello from valet");
 
     #[cfg(windows)]
     delayload::process();
 
-    unsafe {
-        let modname = CString::new("vallet").unwrap();
-        let filename = CString::new("lib.rs").unwrap();
-        let module = sys::napi_module {
-            nm_version: sys::NAPI_VERSION as i32,
-            nm_flags: 0,
-            nm_filename: filename.as_ptr(),
-            nm_modname: modname.as_ptr(),
-            nm_register_func: Some(init),
-            nm_priv: ptr::null_mut(),
-            reserved: [
-                ptr::null_mut(),
-                ptr::null_mut(),
-                ptr::null_mut(),
-                ptr::null_mut(),
-            ],
-        };
-        let module = Box::leak(Box::new(module));
+    let modname = CString::new("valet").unwrap();
+    let filename = CString::new("lib.rs").unwrap();
+    let module = sys::napi_module {
+        nm_version: sys::NAPI_VERSION as i32,
+        nm_flags: 0,
+        nm_filename: filename.as_ptr(),
+        nm_modname: modname.as_ptr(),
+        nm_register_func: Some(init),
+        nm_priv: ptr::null_mut(),
+        reserved: [
+            ptr::null_mut(),
+            ptr::null_mut(),
+            ptr::null_mut(),
+            ptr::null_mut(),
+        ],
+    };
+    let module = Box::leak(Box::new(module));
 
-        sys::napi_module_register(module);
-    }
+    sys::napi_module_register(module);
 }
 
 #[no_mangle]
@@ -52,8 +50,8 @@ unsafe extern "C" fn init(env: sys::napi_env, exports: sys::napi_value) -> sys::
 #[cfg_attr(target_os = "linux", link_section = ".ctors")]
 #[cfg_attr(target_os = "macos", link_section = "__DATA,__mod_init_func")]
 #[cfg_attr(target_os = "windows", link_section = ".CRT$XCU")]
-pub static CTOR_ENTRY: extern "C" fn() = {
-    extern "C" fn ctor_thunk() {
+pub static CTOR_ENTRY: unsafe extern "C" fn() = {
+    unsafe extern "C" fn ctor_thunk() {
         ctor();
     };
     ctor_thunk

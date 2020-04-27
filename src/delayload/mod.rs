@@ -3,13 +3,11 @@ use nj_sys::*;
 
 macro_rules! fixup {
     ($name: expr) => {{
-        unsafe {
-            winhook::hook(stringify!($name), $name as *const std::ffi::c_void);
-        }
+        winhook::hook(stringify!($name), $name as *const std::ffi::c_void);
     }};
 }
 
-pub(crate) fn process() {
+pub(crate) unsafe fn process() {
     fixup!(napi_acquire_threadsafe_function);
     fixup!(napi_add_env_cleanup_hook);
     fixup!(napi_add_finalizer);
