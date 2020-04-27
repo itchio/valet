@@ -2,12 +2,12 @@ fn main() {
     #[cfg(windows)]
     {
         cc::Build::new()
-            .file("workaround/workaround.c")
-            .compile("workaround");
+            .file("mingwcompat/mingwcompat.c")
+            .compile("mingwcompat");
 
         cc::Build::new()
-            .file("fakenode/fakenode.c")
-            .compile("fakenode");
+            .file("nodestub/stubs.c")
+            .compile("nodestub");
     }
 
     #[cfg(not(windows))]

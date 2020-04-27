@@ -24,7 +24,7 @@ fn get_code_path() -> Result<PathBuf, Box<dyn Error>> {
     let mut cmd = cargo_metadata::MetadataCommand::new();
     cmd.manifest_path("..");
     let metadata = cmd.exec().unwrap();
-    assert_eq!(metadata.workspace_root.file_name().unwrap(), "wallet");
+    assert_eq!(metadata.workspace_root.file_name().unwrap(), "vallet");
 
     let pkg = metadata
         .packages

@@ -6,13 +6,13 @@ mod delayload;
 
 #[no_mangle]
 fn ctor() {
-    println!("Hello from wallet");
+    println!("Hello from vallet");
 
     #[cfg(windows)]
     delayload::process();
 
     unsafe {
-        let modname = CString::new("wallet").unwrap();
+        let modname = CString::new("vallet").unwrap();
         let filename = CString::new("lib.rs").unwrap();
         let module = sys::napi_module {
             nm_version: sys::NAPI_VERSION as i32,
