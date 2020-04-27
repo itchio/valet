@@ -1,14 +1,6 @@
 fn main() {
     #[cfg(windows)]
-    {
-        cc::Build::new()
-            .file("mingwcompat/mingwcompat.c")
-            .compile("mingwcompat");
-
-        cc::Build::new()
-            .file("nodestub/stubs.c")
-            .compile("nodestub");
-    }
+    windows();
 
     #[cfg(not(windows))]
     {
@@ -17,4 +9,14 @@ fn main() {
             println!("cargo:rustc-cdylib-link-arg=dynamic_lookup");
         }
     }
+}
+
+fn windows() {
+    cc::Build::new()
+        .file("mingwcompat/mingwcompat.c")
+        .compile("mingwcompat");
+
+    cc::Build::new()
+        .file("nodestub/stubs.c")
+        .compile("nodestub");
 }
