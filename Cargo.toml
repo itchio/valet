@@ -10,5 +10,7 @@ crate-type = ["cdylib"]
 [dependencies]
 nj-sys = "1.0.0"
 
-[build-dependencies]
+[target.'cfg(windows)'.build-dependencies]
 cc = "1.0.50"
+ra_syntax = { git = "https://github.com/rust-analyzer/rust-analyzer", rev = "7a9ba1657daa9fd90c639dcd937da11b4f526675" }
+cargo_metadata = "0.9.1"
