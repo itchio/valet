@@ -19,12 +19,25 @@ func PrintCountry() {
 	must(err)
 
 	body, err := ioutil.ReadAll(res.Body)
+	must(err)
 
 	var cres CountryResponse
 	err = json.Unmarshal(body, &cres)
 	must(err)
 
 	fmt.Printf("You are in: %s\n", cres.Country)
+
+	doPanic()
+}
+
+func doPanic() {
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Println("Recovered: ", r)
+		}
+	}()
+
+	panic("panic from go")
 }
 
 func must(err error) {
