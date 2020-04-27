@@ -43,12 +43,6 @@ pub unsafe fn get_proc_address(name: &str) -> *const c_void {
 pub unsafe fn hook(name: &str, thunk: *const c_void) {
     let real = get_proc_address(name);
 
-    #[cfg(debug)]
-    println!(
-        "thunk = {:?}, real = {:?}",
-        thunk as *const (), real as *const ()
-    );
-
     const FILL: u8 = 0xF1;
     let offset: usize;
 
@@ -68,15 +62,6 @@ pub unsafe fn hook(name: &str, thunk: *const c_void) {
 
     let dest = (real as usize).to_le_bytes();
     ptr::copy_nonoverlapping(dest.as_ptr(), &mut template[offset], dest.len());
-
-    #[cfg(debug)]
-    {
-        print!("full template ({} bytes):", template.len());
-        for b in &template {
-            print!(" {:02x}", b);
-        }
-        println!();
-    }
 
     with_writable(thunk, template.len(), || {
         ptr::copy_nonoverlapping(template.as_ptr(), thunk as *mut u8, template.len());
