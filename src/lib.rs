@@ -1,21 +1,12 @@
 use nj_sys as sys;
 use std::{ffi::CString, ptr};
 
-#[cfg(windows)]
-mod delayload;
-
-#[link(name = "butler", kind = "static")]
-extern "C" {
-    fn PrintCountry();
-    fn StartServer();
-}
-
 #[no_mangle]
 unsafe fn ctor() {
-    println!("Hello from valet");
+    println!("Hi from valet");
 
     #[cfg(windows)]
-    delayload::process();
+    napi_stub::setup();
 
     let modname = CString::new("valet").unwrap();
     let filename = CString::new("lib.rs").unwrap();
@@ -42,8 +33,8 @@ unsafe fn ctor() {
 unsafe extern "C" fn init(env: sys::napi_env, exports: sys::napi_value) -> sys::napi_value {
     println!("In init! exports = {:?}", exports);
 
-    PrintCountry();
-    StartServer();
+    libbutler::PrintCountry();
+    libbutler::StartServer();
 
     let mut ret: sys::napi_value = ptr::null_mut();
     sys::napi_create_object(env, &mut ret);

@@ -52,17 +52,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b8b7a7c0c47db5545ed3fef7468ee7bb5b74691498139e4b3f6a20685dc6dd8e"
 
 [[package]]
-name = "libbutler"
-version = "0.1.0"
-
-[[package]]
-name = "mingw_compat"
-version = "0.1.0"
-dependencies = [
- "cc",
-]
-
-[[package]]
 name = "napi_stub"
 version = "0.1.0"
 dependencies = [
@@ -258,13 +247,3 @@ name = "unicode-xid"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "826e7639553986605ec5979c7dd957c7895e93eabed50ab2ffa7f6128a75097c"
-
-[[package]]
-name = "valet"
-version = "0.1.0"
-dependencies = [
- "libbutler",
- "mingw_compat",
- "napi_stub",
- "nj-sys",
-]
