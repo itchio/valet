@@ -2,6 +2,7 @@ use nj_sys as sys;
 
 mod js;
 use js::*;
+use std::sync::{Arc, RwLock};
 
 #[no_mangle]
 unsafe fn ctor() {
@@ -33,21 +34,31 @@ unsafe extern "C" fn init(env: sys::napi_env, exports: sys::napi_value) -> sys::
             version
         })?;
 
+        struct CounterState {
+            count: usize,
+        }
+        let cs = CounterState { count: 0 };
+
         unsafe extern "C" fn say_hi(
             env: sys::napi_env,
             info: sys::napi_callback_info,
         ) -> sys::napi_value {
             let env = JEnv::new(env);
-            let counter: &mut u32 = env.cb_info(&info);
-            let res = env.throwable::<JError>(&|| Ok(env.int64(*counter as i64)?));
-            *counter += 1;
-            res
+            env.throwable::<JError>(&|| {
+                println!("in say_hi!");
+                let info = env.borrow_cb_info::<CounterState>(info, 1)?;
+                println!("this_arg type = {:?}", env.type_of(info.this_arg));
+                println!("first arg type = {:?}", env.type_of(info.args[0]));
+                let mut data = info.data.write().unwrap();
+                let val = data.count;
+                data.count += 1;
+                env.int64(val as i64)
+            })
         }
 
-        let counter = Box::new(0);
-        let counter = Box::leak(counter);
+        let arc = Arc::new(RwLock::new(cs));
 
-        let f = env.function("say_hi", Some(say_hi), counter)?;
+        let f = env.function("say_hi", Some(say_hi), arc.clone())?;
         ret.set_property(env.string("say_hi")?, f)?;
 
         Ok(ret.into())

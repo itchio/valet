@@ -1,5 +1,12 @@
 use nj_sys::*;
-use std::{error::Error, ffi::CString, fmt, ptr};
+use std::{
+    error::Error,
+    ffi::CString,
+    fmt,
+    os::raw::c_void,
+    ptr,
+    sync::{Arc, RwLock},
+};
 
 #[repr(transparent)]
 pub struct JError(pub napi_status);
@@ -109,6 +116,35 @@ impl From<napi_env> for JEnv {
     }
 }
 
+#[derive(Clone, Copy)]
+pub struct JValueType(napi_valuetype);
+
+impl fmt::Debug for JValueType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        #[allow(non_upper_case_globals)]
+        let s = match self.0 {
+            napi_valuetype_napi_undefined => "undefined",
+            napi_valuetype_napi_null => "null",
+            napi_valuetype_napi_boolean => "boolean",
+            napi_valuetype_napi_number => "number",
+            napi_valuetype_napi_string => "string",
+            napi_valuetype_napi_symbol => "symbol",
+            napi_valuetype_napi_object => "object",
+            napi_valuetype_napi_function => "function",
+            napi_valuetype_napi_external => "external",
+            napi_valuetype_napi_bigint => "bigint",
+            _ => "?",
+        };
+        write!(f, "{}", s)
+    }
+}
+
+pub struct JCbInfo<T> {
+    pub data: Arc<RwLock<T>>,
+    pub args: Vec<napi_value>,
+    pub this_arg: napi_value,
+}
+
 impl JEnv {
     pub fn new(e: napi_env) -> Self {
         e.into()
@@ -139,7 +175,12 @@ impl JEnv {
         Ok(value)
     }
 
-    pub fn function<T>(&self, name: &str, cb: napi_callback, data: *mut T) -> JResult<JFunction> {
+    pub fn function<T>(
+        &self,
+        name: &str,
+        cb: napi_callback,
+        data: Arc<RwLock<T>>,
+    ) -> JResult<JFunction> {
         let mut value = ptr::null_mut();
         unsafe {
             napi_create_function(
@@ -147,7 +188,7 @@ impl JEnv {
                 name.as_ptr() as *const i8,
                 name.len(),
                 cb,
-                data as *mut std::os::raw::c_void,
+                Arc::into_raw(data) as *mut c_void,
                 &mut value,
             )
         }
@@ -155,19 +196,36 @@ impl JEnv {
         Ok(JFunction { env: *self, value })
     }
 
-    pub fn cb_info<'a, T>(self, info: &'a napi_callback_info) -> &'a mut T {
-        let mut data: *mut std::os::raw::c_void = std::ptr::null_mut();
+    pub fn borrow_cb_info<T>(
+        self,
+        info: napi_callback_info,
+        arg_count: usize,
+    ) -> JResult<JCbInfo<T>> {
+        let mut args = vec![ptr::null_mut(); arg_count];
+        let mut argc: usize = arg_count;
+        let mut this_arg = ptr::null_mut();
+        let mut data: *mut c_void = std::ptr::null_mut();
         unsafe {
             napi_get_cb_info(
                 self.0,
-                *info,
-                std::ptr::null_mut(),
-                std::ptr::null_mut(),
-                std::ptr::null_mut(),
-                (&mut data) as *mut *mut std::os::raw::c_void,
-            );
-            std::mem::transmute(data)
+                info,
+                &mut argc,
+                args.as_mut_ptr(),
+                &mut this_arg,
+                &mut data,
+            )
         }
+        .check()?;
+
+        let arc = unsafe { Arc::from_raw(data as *mut RwLock<T>) };
+        let clone = arc.clone();
+        let _ = Arc::into_raw(arc);
+
+        Ok(JCbInfo {
+            args,
+            data: clone,
+            this_arg,
+        })
     }
 
     pub fn throwable<E>(&self, f: &dyn Fn() -> Result<napi_value, E>) -> napi_value
@@ -183,6 +241,12 @@ impl JEnv {
                 self.null().unwrap()
             }
         }
+    }
+
+    pub fn type_of<V: Into<napi_value>>(&self, v: V) -> JResult<JValueType> {
+        let mut value = 0;
+        unsafe { napi_typeof(self.0, v.into(), &mut value) }.check()?;
+        Ok(JValueType(value))
     }
 }
 
