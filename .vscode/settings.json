@@ -1,0 +1,6 @@
+{
+    "rust-analyzer.checkOnSave.overrideCommand": ["cargo", "+stable-x86_64-pc-windows-gnu", "check", "--message-format=json"],
+    "[rust]": {
+        "editor.formatOnSave": true
+    }
+}
