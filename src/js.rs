@@ -84,10 +84,32 @@ pub struct JObject {
 }
 
 impl JObject {
-    pub fn set_property<V: Into<napi_value>>(&self, key: JString, value: V) -> Result<(), JError> {
+    pub fn set_named_property<V: Into<napi_value>>(&self, name: &str, value: V) -> JResult<()> {
+        self.set_property(self.env.string(name)?.into(), value)
+    }
+
+    pub fn get_named_property(&self, name: &str) -> JResult<napi_value> {
+        self.get_property(self.env.string(name)?.into())
+    }
+
+    pub fn set_property<V: Into<napi_value>>(&self, key: napi_value, value: V) -> JResult<()> {
         unsafe { napi_set_property(self.env.0, self.value, key.into(), value.into()) }.check()
     }
+
+    pub fn get_property(&self, key: napi_value) -> JResult<napi_value> {
+        let mut value = ptr::null_mut();
+        unsafe { napi_get_property(self.env.0, self.value, key.into(), &mut value) }.check()?;
+        Ok(value)
+    }
 }
+
+pub trait ToNapi {
+    fn to_napi(&self, env: JEnv) -> napi_value;
+}
+
+// TODO: implement ToNapi for a bunch of things
+// impl ToNapi for &str {
+// }
 
 impl Into<napi_value> for JObject {
     fn into(self) -> napi_value {
@@ -139,10 +161,21 @@ impl fmt::Debug for JValueType {
     }
 }
 
-pub struct JCbInfo<T> {
-    pub data: Arc<RwLock<T>>,
+pub struct JMethodInfo<T> {
+    pub this: Arc<RwLock<T>>,
     pub args: Vec<napi_value>,
-    pub this_arg: napi_value,
+}
+
+#[derive(Clone, Copy)]
+pub struct ArcRwLockExternal {
+    env: JEnv,
+    value: napi_value,
+}
+
+impl Into<napi_value> for ArcRwLockExternal {
+    fn into(self) -> napi_value {
+        self.value
+    }
 }
 
 impl JEnv {
@@ -169,10 +202,59 @@ impl JEnv {
         Ok(value)
     }
 
-    pub fn null(&self) -> JResult<napi_value> {
+    pub fn arc_rw_lock_external<T>(&self, data: Arc<RwLock<T>>) -> JResult<ArcRwLockExternal> {
         let mut value = ptr::null_mut();
-        unsafe { napi_get_null(self.0, &mut value) }.check()?;
+        unsafe {
+            napi_create_external(
+                self.0,
+                Arc::into_raw(data) as *mut c_void,
+                Some(finalize_arc_rw_lock_external),
+                ptr::null_mut(),
+                &mut value,
+            )
+        }
+        .check()?;
+        Ok(ArcRwLockExternal { env: *self, value })
+    }
+
+    pub fn get_arc_rw_lock_external<T>(&self, external: napi_value) -> JResult<Arc<RwLock<T>>> {
+        let mut value = ptr::null_mut();
+        unsafe { napi_get_value_external(self.0, external, &mut value) }.check()?;
+
+        let value = unsafe { Arc::from_raw(value as *mut RwLock<T>) };
         Ok(value)
+    }
+
+    pub fn boolean(&self, b: bool) -> napi_value {
+        let mut value = ptr::null_mut();
+        unsafe { napi_get_boolean(self.0, b, &mut value) }
+            .check()
+            .unwrap();
+        value
+    }
+
+    pub fn global(&self) -> napi_value {
+        let mut value = ptr::null_mut();
+        unsafe { napi_get_global(self.0, &mut value) }
+            .check()
+            .unwrap();
+        value
+    }
+
+    pub fn undefined(&self) -> napi_value {
+        let mut value = ptr::null_mut();
+        unsafe { napi_get_undefined(self.0, &mut value) }
+            .check()
+            .unwrap();
+        value
+    }
+
+    pub fn null(&self) -> napi_value {
+        let mut value = ptr::null_mut();
+        unsafe { napi_get_null(self.0, &mut value) }
+            .check()
+            .unwrap();
+        value
     }
 
     pub fn function<T>(
@@ -196,15 +278,14 @@ impl JEnv {
         Ok(JFunction { env: *self, value })
     }
 
-    pub fn borrow_cb_info<T>(
+    pub fn borrow_method_info<T>(
         self,
         info: napi_callback_info,
         arg_count: usize,
-    ) -> JResult<JCbInfo<T>> {
+    ) -> JResult<JMethodInfo<T>> {
         let mut args = vec![ptr::null_mut(); arg_count];
         let mut argc: usize = arg_count;
         let mut this_arg = ptr::null_mut();
-        let mut data: *mut c_void = std::ptr::null_mut();
         unsafe {
             napi_get_cb_info(
                 self.0,
@@ -212,20 +293,20 @@ impl JEnv {
                 &mut argc,
                 args.as_mut_ptr(),
                 &mut this_arg,
-                &mut data,
+                ptr::null_mut(),
             )
         }
         .check()?;
 
-        let arc = unsafe { Arc::from_raw(data as *mut RwLock<T>) };
+        if this_arg.is_null() {
+            self.throw_error("Native method called with no receiver");
+        }
+
+        let arc = unsafe { Arc::from_raw(this_arg as *mut RwLock<T>) };
         let clone = arc.clone();
         let _ = Arc::into_raw(arc);
 
-        Ok(JCbInfo {
-            args,
-            data: clone,
-            this_arg,
-        })
+        Ok(JMethodInfo { this: clone, args })
     }
 
     pub fn throwable<E>(&self, f: &dyn Fn() -> Result<napi_value, E>) -> napi_value
@@ -235,12 +316,19 @@ impl JEnv {
         match f() {
             Ok(r) => r,
             Err(e) => {
-                let code = CString::new("RUST_ERROR").unwrap();
-                let msg = CString::new(format!("{}", e)).unwrap();
-                unsafe { napi_throw_error(self.0, code.as_ptr(), msg.as_ptr()) };
-                self.null().unwrap()
+                self.throw_error(e);
+                self.null()
             }
         }
+    }
+
+    pub fn throw_error<E>(&self, e: E)
+    where
+        E: fmt::Display,
+    {
+        let code = CString::new("RUST_ERROR").unwrap();
+        let msg = CString::new(format!("{}", e)).unwrap();
+        unsafe { napi_throw_error(self.0, code.as_ptr(), msg.as_ptr()) };
     }
 
     pub fn type_of<V: Into<napi_value>>(&self, v: V) -> JResult<JValueType> {
@@ -274,4 +362,13 @@ pub fn register_module(
     let module = Box::leak(Box::new(module));
 
     unsafe { napi_module_register(module) }
+}
+
+unsafe extern "C" fn finalize_arc_rw_lock_external(
+    env: napi_env,
+    data: *mut c_void,
+    hint: *mut c_void,
+) {
+    // this kills the Arc
+    Arc::from_raw(data);
 }

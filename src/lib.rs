@@ -25,19 +25,18 @@ unsafe extern "C" fn init(env: sys::napi_env, exports: sys::napi_value) -> sys::
 
         let ret = env.object()?;
 
-        ret.set_property(env.string("name")?, env.string("butler server")?)?;
-        ret.set_property(env.string("version")?, {
+        ret.set_named_property("name", env.string("butler server")?)?;
+        ret.set_named_property("version", {
             let version = env.object()?;
-            version.set_property(env.string("major")?, env.int64(1)?)?;
-            version.set_property(env.string("minor")?, env.int64(3)?)?;
-            version.set_property(env.string("patch")?, env.int64(0)?)?;
+            version.set_named_property("major", env.int64(1)?)?;
+            version.set_named_property("minor", env.int64(3)?)?;
+            version.set_named_property("patch", env.int64(0)?)?;
             version
         })?;
 
         struct CounterState {
             count: usize,
         }
-        let cs = CounterState { count: 0 };
 
         unsafe extern "C" fn say_hi(
             env: sys::napi_env,
@@ -46,20 +45,20 @@ unsafe extern "C" fn init(env: sys::napi_env, exports: sys::napi_value) -> sys::
             let env = JEnv::new(env);
             env.throwable::<JError>(&|| {
                 println!("in say_hi!");
-                let info = env.borrow_cb_info::<CounterState>(info, 1)?;
-                println!("this_arg type = {:?}", env.type_of(info.this_arg));
+                let info = env.borrow_method_info::<CounterState>(info, 1)?;
                 println!("first arg type = {:?}", env.type_of(info.args[0]));
-                let mut data = info.data.write().unwrap();
+                let mut data = info.this.write().unwrap();
                 let val = data.count;
                 data.count += 1;
                 env.int64(val as i64)
             })
         }
 
+        let cs = CounterState { count: 0 };
         let arc = Arc::new(RwLock::new(cs));
 
-        let f = env.function("say_hi", Some(say_hi), arc.clone())?;
-        ret.set_property(env.string("say_hi")?, f)?;
+        let f = env.function("say_hi", Some(say_hi), Arc::clone(&arc))?;
+        ret.set_named_property("say_hi", f)?;
 
         Ok(ret.into())
     })
