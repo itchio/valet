@@ -8,10 +8,72 @@ use std::{
     sync::{Arc, RwLock},
 };
 
-#[repr(transparent)]
-pub struct JError(pub napi_status);
+pub trait ToNapi {
+    fn to_napi(&self, env: JsEnv) -> JsResult<napi_value>;
+}
 
-impl fmt::Display for JError {
+impl ToNapi for napi_value {
+    fn to_napi(&self, env: JsEnv) -> JsResult<napi_value> {
+        Ok(*self)
+    }
+}
+
+impl ToNapi for &str {
+    fn to_napi(&self, env: JsEnv) -> JsResult<napi_value> {
+        Ok(env.string(self)?.value)
+    }
+}
+
+impl ToNapi for i64 {
+    fn to_napi(&self, env: JsEnv) -> JsResult<napi_value> {
+        Ok(env.int64(*self)?.value)
+    }
+}
+
+impl ToNapi for i32 {
+    fn to_napi(&self, env: JsEnv) -> JsResult<napi_value> {
+        Ok(env.int32(*self)?.value)
+    }
+}
+
+impl ToNapi for u32 {
+    fn to_napi(&self, env: JsEnv) -> JsResult<napi_value> {
+        Ok(env.uint32(*self)?.value)
+    }
+}
+
+impl ToNapi for f32 {
+    fn to_napi(&self, env: JsEnv) -> JsResult<napi_value> {
+        Ok(env.double(*self as f64)?.value)
+    }
+}
+
+impl ToNapi for f64 {
+    fn to_napi(&self, env: JsEnv) -> JsResult<napi_value> {
+        env.double(*self)?.to_napi(env)
+    }
+}
+
+impl ToNapi for bool {
+    fn to_napi(&self, env: JsEnv) -> JsResult<napi_value> {
+        env.boolean(*self).to_napi(env)
+    }
+}
+
+macro_rules! impl_to_napi {
+    ($t:ty) => {
+        impl ToNapi for $t {
+            fn to_napi(&self, env: JsEnv) -> JsResult<napi_value> {
+                Ok(self.value)
+            }
+        }
+    };
+}
+
+#[repr(transparent)]
+pub struct JsError(pub napi_status);
+
+impl fmt::Display for JsError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         #[allow(non_upper_case_globals)]
         let desc = match self.0 {
@@ -41,107 +103,82 @@ impl fmt::Display for JError {
     }
 }
 
-impl fmt::Debug for JError {
+impl fmt::Debug for JsError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{} (code {})", self, self.0)
     }
 }
 
-impl Error for JError {}
+impl Error for JsError {}
 
-type JResult<T> = Result<T, JError>;
+type JsResult<T> = Result<T, JsError>;
 
 pub trait Check {
-    fn check(self) -> Result<(), JError>;
+    fn check(self) -> Result<(), JsError>;
 }
 
 impl Check for napi_status {
-    fn check(self) -> Result<(), JError> {
+    fn check(self) -> Result<(), JsError> {
         if self == napi_status_napi_ok {
             Ok(())
         } else {
-            Err(JError(self))
+            Err(JsError(self))
         }
     }
 }
 
 #[derive(Clone, Copy, Debug)]
-pub struct JString {
-    env: JEnv,
+pub struct JsValue {
+    env: JsEnv,
     value: napi_value,
 }
 
-impl Into<napi_value> for JString {
-    fn into(self) -> napi_value {
-        self.value
+pub trait ToJsValue {
+    fn to_js_value(self, env: JsEnv) -> JsValue;
+}
+
+impl ToJsValue for napi_value {
+    fn to_js_value(self, env: JsEnv) -> JsValue {
+        JsValue { env, value: self }
     }
 }
 
-#[derive(Clone, Copy, Debug)]
-pub struct JObject {
-    env: JEnv,
-    value: napi_value,
-}
-
-impl JObject {
-    pub fn set_named_property<V: Into<napi_value>>(&self, name: &str, value: V) -> JResult<()> {
-        self.set_property(self.env.string(name)?.into(), value)
+impl JsValue {
+    pub fn set_property<K: ToNapi, V: ToNapi>(&self, key: K, value: V) -> JsResult<()> {
+        unsafe {
+            napi_set_property(
+                self.env.0,
+                self.value,
+                key.to_napi(self.env)?,
+                value.to_napi(self.env)?,
+            )
+        }
+        .check()
     }
 
-    pub fn get_named_property(&self, name: &str) -> JResult<napi_value> {
-        self.get_property(self.env.string(name)?.into())
-    }
-
-    pub fn set_property<V: Into<napi_value>>(&self, key: napi_value, value: V) -> JResult<()> {
-        unsafe { napi_set_property(self.env.0, self.value, key.into(), value.into()) }.check()
-    }
-
-    pub fn get_property(&self, key: napi_value) -> JResult<napi_value> {
+    pub fn get_property<K: ToNapi>(&self, key: K) -> JsResult<napi_value> {
         let mut value = ptr::null_mut();
-        unsafe { napi_get_property(self.env.0, self.value, key.into(), &mut value) }.check()?;
+        unsafe { napi_get_property(self.env.0, self.value, key.to_napi(self.env)?, &mut value) }
+            .check()?;
         Ok(value)
     }
 }
 
-pub trait ToNapi {
-    fn to_napi(&self, env: JEnv) -> napi_value;
-}
-
-// TODO: implement ToNapi for a bunch of things
-// impl ToNapi for &str {
-// }
-
-impl Into<napi_value> for JObject {
-    fn into(self) -> napi_value {
-        self.value
-    }
-}
+impl_to_napi!(JsValue);
 
 #[derive(Clone, Copy, Debug)]
-pub struct JFunction {
-    env: JEnv,
-    value: napi_value,
-}
+pub struct JsEnv(napi_env);
 
-impl Into<napi_value> for JFunction {
-    fn into(self) -> napi_value {
-        self.value
-    }
-}
-
-#[derive(Clone, Copy, Debug)]
-pub struct JEnv(napi_env);
-
-impl From<napi_env> for JEnv {
+impl From<napi_env> for JsEnv {
     fn from(e: napi_env) -> Self {
         Self(e)
     }
 }
 
 #[derive(Clone, Copy)]
-pub struct JValueType(napi_valuetype);
+pub struct JsValueType(napi_valuetype);
 
-impl fmt::Debug for JValueType {
+impl fmt::Debug for JsValueType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         #[allow(non_upper_case_globals)]
         let s = match self.0 {
@@ -168,41 +205,55 @@ pub struct JMethodInfo<T> {
 
 #[derive(Clone, Copy)]
 pub struct ArcRwLockExternal {
-    env: JEnv,
+    env: JsEnv,
     value: napi_value,
 }
 
-impl Into<napi_value> for ArcRwLockExternal {
-    fn into(self) -> napi_value {
-        self.value
-    }
-}
+impl_to_napi!(ArcRwLockExternal);
 
-impl JEnv {
+impl JsEnv {
     pub fn new(e: napi_env) -> Self {
         e.into()
     }
 
-    pub fn string(&self, s: &str) -> JResult<JString> {
+    pub fn string(self, s: &str) -> JsResult<JsValue> {
         let mut value = ptr::null_mut();
         unsafe { napi_create_string_utf8(self.0, s.as_ptr() as *const i8, s.len(), &mut value) }
             .check()?;
-        Ok(JString { env: *self, value })
+        Ok(value.to_js_value(self))
     }
 
-    pub fn object(&self) -> JResult<JObject> {
+    pub fn object(self) -> JsResult<JsValue> {
         let mut value = ptr::null_mut();
         unsafe { napi_create_object(self.0, &mut value) }.check()?;
-        Ok(JObject { env: *self, value })
+        Ok(value.to_js_value(self))
     }
 
-    pub fn int64(&self, i: i64) -> JResult<napi_value> {
+    pub fn int32(self, i: i32) -> JsResult<JsValue> {
+        let mut value = ptr::null_mut();
+        unsafe { napi_create_int32(self.0, i, &mut value) }.check()?;
+        Ok(value.to_js_value(self))
+    }
+
+    pub fn uint32(self, i: u32) -> JsResult<JsValue> {
+        let mut value = ptr::null_mut();
+        unsafe { napi_create_uint32(self.0, i, &mut value) }.check()?;
+        Ok(value.to_js_value(self))
+    }
+
+    pub fn int64(self, i: i64) -> JsResult<JsValue> {
         let mut value = ptr::null_mut();
         unsafe { napi_create_int64(self.0, i, &mut value) }.check()?;
-        Ok(value)
+        Ok(value.to_js_value(self))
     }
 
-    pub fn arc_rw_lock_external<T>(&self, data: Arc<RwLock<T>>) -> JResult<ArcRwLockExternal> {
+    pub fn double(self, i: f64) -> JsResult<JsValue> {
+        let mut value = ptr::null_mut();
+        unsafe { napi_create_double(self.0, i, &mut value) }.check()?;
+        Ok(value.to_js_value(self))
+    }
+
+    pub fn arc_rw_lock_external<T>(self, data: Arc<RwLock<T>>) -> JsResult<JsValue> {
         let mut value = ptr::null_mut();
         unsafe {
             napi_create_external(
@@ -214,10 +265,10 @@ impl JEnv {
             )
         }
         .check()?;
-        Ok(ArcRwLockExternal { env: *self, value })
+        Ok(value.to_js_value(self))
     }
 
-    pub fn get_arc_rw_lock_external<T>(&self, external: napi_value) -> JResult<Arc<RwLock<T>>> {
+    pub fn get_arc_rw_lock_external<T>(self, external: napi_value) -> JsResult<Arc<RwLock<T>>> {
         let mut value = ptr::null_mut();
         unsafe { napi_get_value_external(self.0, external, &mut value) }.check()?;
 
@@ -225,44 +276,39 @@ impl JEnv {
         Ok(value)
     }
 
-    pub fn boolean(&self, b: bool) -> napi_value {
+    pub fn boolean(self, b: bool) -> JsValue {
         let mut value = ptr::null_mut();
         unsafe { napi_get_boolean(self.0, b, &mut value) }
             .check()
             .unwrap();
-        value
+        value.to_js_value(self)
     }
 
-    pub fn global(&self) -> napi_value {
+    pub fn global(self) -> JsValue {
         let mut value = ptr::null_mut();
         unsafe { napi_get_global(self.0, &mut value) }
             .check()
             .unwrap();
-        value
+        value.to_js_value(self)
     }
 
-    pub fn undefined(&self) -> napi_value {
+    pub fn undefined(self) -> JsValue {
         let mut value = ptr::null_mut();
         unsafe { napi_get_undefined(self.0, &mut value) }
             .check()
             .unwrap();
-        value
+        value.to_js_value(self)
     }
 
-    pub fn null(&self) -> napi_value {
+    pub fn null(self) -> JsValue {
         let mut value = ptr::null_mut();
         unsafe { napi_get_null(self.0, &mut value) }
             .check()
             .unwrap();
-        value
+        value.to_js_value(self)
     }
 
-    pub fn function<T>(
-        &self,
-        name: &str,
-        cb: napi_callback,
-        data: Arc<RwLock<T>>,
-    ) -> JResult<JFunction> {
+    pub fn function(self, name: &str, cb: napi_callback) -> JsResult<JsValue> {
         let mut value = ptr::null_mut();
         unsafe {
             napi_create_function(
@@ -270,19 +316,19 @@ impl JEnv {
                 name.as_ptr() as *const i8,
                 name.len(),
                 cb,
-                Arc::into_raw(data) as *mut c_void,
+                ptr::null_mut(),
                 &mut value,
             )
         }
         .check()?;
-        Ok(JFunction { env: *self, value })
+        Ok(value.to_js_value(self))
     }
 
-    pub fn borrow_method_info<T>(
+    pub fn get_method_info<T>(
         self,
         info: napi_callback_info,
         arg_count: usize,
-    ) -> JResult<JMethodInfo<T>> {
+    ) -> JsResult<JMethodInfo<T>> {
         let mut args = vec![ptr::null_mut(); arg_count];
         let mut argc: usize = arg_count;
         let mut this_arg = ptr::null_mut();
@@ -302,14 +348,16 @@ impl JEnv {
             self.throw_error("Native method called with no receiver");
         }
 
-        let arc = unsafe { Arc::from_raw(this_arg as *mut RwLock<T>) };
-        let clone = arc.clone();
+        let this_arg = this_arg.to_js_value(self);
+        let handle = this_arg.get_property("handle")?;
+        let arc = self.get_arc_rw_lock_external(handle)?;
+        let clone = Arc::clone(&arc);
         let _ = Arc::into_raw(arc);
 
         Ok(JMethodInfo { this: clone, args })
     }
 
-    pub fn throwable<E>(&self, f: &dyn Fn() -> Result<napi_value, E>) -> napi_value
+    pub fn throwable<E>(self, f: &dyn Fn() -> Result<napi_value, E>) -> napi_value
     where
         E: fmt::Display,
     {
@@ -317,12 +365,12 @@ impl JEnv {
             Ok(r) => r,
             Err(e) => {
                 self.throw_error(e);
-                self.null()
+                self.undefined().value
             }
         }
     }
 
-    pub fn throw_error<E>(&self, e: E)
+    pub fn throw_error<E>(self, e: E)
     where
         E: fmt::Display,
     {
@@ -331,10 +379,10 @@ impl JEnv {
         unsafe { napi_throw_error(self.0, code.as_ptr(), msg.as_ptr()) };
     }
 
-    pub fn type_of<V: Into<napi_value>>(&self, v: V) -> JResult<JValueType> {
+    pub fn type_of<V: Into<napi_value>>(&self, v: V) -> JsResult<JsValueType> {
         let mut value = 0;
         unsafe { napi_typeof(self.0, v.into(), &mut value) }.check()?;
-        Ok(JValueType(value))
+        Ok(JsValueType(value))
     }
 }
 

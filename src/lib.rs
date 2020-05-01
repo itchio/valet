@@ -14,10 +14,14 @@ unsafe fn ctor() {
     register_module("valet", "lib.rs", init);
 }
 
+struct State {
+    count: i64,
+}
+
 #[no_mangle]
 unsafe extern "C" fn init(env: sys::napi_env, exports: sys::napi_value) -> sys::napi_value {
-    let env = JEnv::new(env);
-    env.throwable::<JError>(&|| {
+    let env = JsEnv::new(env);
+    env.throwable::<JsError>(&|| {
         println!("In init! exports = {:?}", exports);
 
         libbutler::PrintCountry();
@@ -25,42 +29,40 @@ unsafe extern "C" fn init(env: sys::napi_env, exports: sys::napi_value) -> sys::
 
         let ret = env.object()?;
 
-        ret.set_named_property("name", env.string("butler server")?)?;
-        ret.set_named_property("version", {
+        ret.set_property("name", "butler server")?;
+        ret.set_property("version", {
             let version = env.object()?;
-            version.set_named_property("major", env.int64(1)?)?;
-            version.set_named_property("minor", env.int64(3)?)?;
-            version.set_named_property("patch", env.int64(0)?)?;
+            version.set_property("major", 1)?;
+            version.set_property("minor", 3)?;
+            version.set_property("patch", 0)?;
             version
         })?;
-
-        struct CounterState {
-            count: usize,
-        }
 
         unsafe extern "C" fn say_hi(
             env: sys::napi_env,
             info: sys::napi_callback_info,
         ) -> sys::napi_value {
-            let env = JEnv::new(env);
-            env.throwable::<JError>(&|| {
-                println!("in say_hi!");
-                let info = env.borrow_method_info::<CounterState>(info, 1)?;
+            let env = JsEnv::new(env);
+            env.throwable::<JsError>(&|| {
+                let info = env.get_method_info::<State>(info, 1)?;
                 println!("first arg type = {:?}", env.type_of(info.args[0]));
                 let mut data = info.this.write().unwrap();
                 let val = data.count;
                 data.count += 1;
-                env.int64(val as i64)
+                val.to_napi(env)
             })
         }
 
-        let cs = CounterState { count: 0 };
-        let arc = Arc::new(RwLock::new(cs));
+        let state = State { count: 0 };
+        let state = Arc::new(RwLock::new(state));
 
-        let f = env.function("say_hi", Some(say_hi), Arc::clone(&arc))?;
-        ret.set_named_property("say_hi", f)?;
+        let handle = env.arc_rw_lock_external(state)?;
+        ret.set_property("handle", handle)?;
 
-        Ok(ret.into())
+        let f = env.function("say_hi", Some(say_hi))?;
+        ret.set_property("say_hi", f)?;
+
+        Ok(ret.to_napi(env)?)
     })
 }
 
