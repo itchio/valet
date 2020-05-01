@@ -12,6 +12,12 @@ pub trait ToNapi {
     fn to_napi(&self, env: JsEnv) -> JsResult<napi_value>;
 }
 
+impl ToNapi for () {
+    fn to_napi(&self, env: JsEnv) -> JsResult<napi_value> {
+        Ok(env.undefined().value)
+    }
+}
+
 impl ToNapi for napi_value {
     fn to_napi(&self, env: JsEnv) -> JsResult<napi_value> {
         Ok(*self)
@@ -162,6 +168,17 @@ impl JsValue {
             .check()?;
         Ok(value)
     }
+
+    pub fn set_method<F, O, T: ToNapi, E: fmt::Display>(&self, name: &str, f: F) -> JsResult<()>
+    where
+        F: Fn(JsEnv, Arc<RwLock<O>>, Vec<JsValue>) -> Result<T, E>,
+        O: ToNapi,
+        E: fmt::Display,
+    {
+        self.env
+            .function(name, Some(call_method), Box::into_raw(Box::new(move || {})));
+        todo!()
+    }
 }
 
 impl_to_napi!(JsValue);
@@ -308,7 +325,7 @@ impl JsEnv {
         value.to_js_value(self)
     }
 
-    pub fn function(self, name: &str, cb: napi_callback) -> JsResult<JsValue> {
+    pub fn function(self, name: &str, cb: napi_callback, data: *mut c_void) -> JsResult<JsValue> {
         let mut value = ptr::null_mut();
         unsafe {
             napi_create_function(
@@ -316,7 +333,7 @@ impl JsEnv {
                 name.as_ptr() as *const i8,
                 name.len(),
                 cb,
-                ptr::null_mut(),
+                data,
                 &mut value,
             )
         }
@@ -417,6 +434,10 @@ unsafe extern "C" fn finalize_arc_rw_lock_external(
     data: *mut c_void,
     hint: *mut c_void,
 ) {
-    // this kills the Arc
+    // this kills the Arc.
     Arc::from_raw(data);
+}
+
+unsafe extern "C" fn call_method(env: napi_env, info: napi_callback_info) -> napi_value {
+    let env = JsEnv::new(env);
 }
