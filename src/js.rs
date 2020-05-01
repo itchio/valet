@@ -89,6 +89,18 @@ impl Into<napi_value> for JObject {
 }
 
 #[derive(Clone, Copy, Debug)]
+pub struct JFunction {
+    env: JEnv,
+    value: napi_value,
+}
+
+impl Into<napi_value> for JFunction {
+    fn into(self) -> napi_value {
+        self.value
+    }
+}
+
+#[derive(Clone, Copy, Debug)]
 pub struct JEnv(napi_env);
 
 impl From<napi_env> for JEnv {
@@ -115,10 +127,47 @@ impl JEnv {
         Ok(JObject { env: *self, value })
     }
 
+    pub fn int64(&self, i: i64) -> JResult<napi_value> {
+        let mut value = ptr::null_mut();
+        unsafe { napi_create_int64(self.0, i, &mut value) }.check()?;
+        Ok(value)
+    }
+
     pub fn null(&self) -> JResult<napi_value> {
         let mut value = ptr::null_mut();
         unsafe { napi_get_null(self.0, &mut value) }.check()?;
         Ok(value)
+    }
+
+    pub fn function<T>(&self, name: &str, cb: napi_callback, data: *mut T) -> JResult<JFunction> {
+        let mut value = ptr::null_mut();
+        unsafe {
+            napi_create_function(
+                self.0,
+                name.as_ptr() as *const i8,
+                name.len(),
+                cb,
+                data as *mut std::os::raw::c_void,
+                &mut value,
+            )
+        }
+        .check()?;
+        Ok(JFunction { env: *self, value })
+    }
+
+    pub fn cb_info<'a, T>(self, info: &'a napi_callback_info) -> &'a mut T {
+        let mut data: *mut std::os::raw::c_void = std::ptr::null_mut();
+        unsafe {
+            napi_get_cb_info(
+                self.0,
+                *info,
+                std::ptr::null_mut(),
+                std::ptr::null_mut(),
+                std::ptr::null_mut(),
+                (&mut data) as *mut *mut std::os::raw::c_void,
+            );
+            std::mem::transmute(data)
+        }
     }
 
     pub fn throwable<E>(&self, f: &dyn Fn() -> Result<napi_value, E>) -> napi_value
