@@ -212,113 +212,85 @@ impl JsValue {
 
 impl_to_napi!(JsValue);
 
-pub struct ClassBuilder<T> {
-    marker: PhantomData<T>,
+pub struct ClassBuilder<O> {
+    marker: PhantomData<O>,
 
     env: JsEnv,
     obj: JsValue,
 }
 
-pub trait DefMethod0<O> {
-    fn method<T, F>(&self, name: &str, f: F) -> JsResult<()>
-    where
-        F: Fn(JsEnv, &O) -> Result<T, JsError>,
-        T: ToNapi;
-}
-
-impl<O> DefMethod0<O> for ClassBuilder<O> {
-    fn method<T, F>(&self, name: &str, f: F) -> JsResult<()>
+impl<O> ClassBuilder<O> {
+    pub fn method_0<T, F>(&self, name: &str, f: F) -> JsResult<()>
     where
         F: Fn(JsEnv, &O) -> Result<T, JsError>,
         T: ToNapi,
     {
+        fn call<O, T, F>(
+            f: F,
+            env: JsEnv,
+            this: Arc<RwLock<O>>,
+            _args: Vec<napi_value>,
+        ) -> Result<T, JsError>
+        where
+            F: Fn(JsEnv, &O) -> Result<T, JsError>,
+        {
+            println!("in method_0::call");
+            let this = this.read().unwrap();
+            println!("in method_0::call, got this");
+            let ret = f(env, &this);
+            println!("ret is ok? {}", ret.is_ok());
+            ret
+        }
+
+        let ctx = MethodContext::<O, T, F> { call, f };
         let f = self.env.function(
             name,
-            Some(call_method_0::<O, T, F>),
-            Box::into_raw(Box::new(f)) as *mut c_void,
+            Some(call_method::<O, T, F>),
+            Box::into_raw(Box::new(ctx)) as *mut c_void,
         )?;
         self.obj.set_property(name, f)
     }
-}
 
-pub trait DefMethod1<O, A1>
-where
-    A1: FromNapi,
-{
-    fn method<T, F>(&self, name: &str, f: F) -> JsResult<()>
-    where
-        F: Fn(JsEnv, &O, A1) -> Result<T, JsError>,
-        T: ToNapi;
-}
+    // fn method_1<T, F, A1>(&self, name: &str, f: F) -> JsResult<()>
+    // where
+    //     F: Fn(JsEnv, &O, A1) -> Result<T, JsError>,
+    //     T: ToNapi,
+    //     A1: FromNapi,
+    // {
+    //     let f = self.env.function(
+    //         name,
+    //         Some(call_method_1::<O, T, F, A1>),
+    //         Box::into_raw(Box::new(f)) as *mut c_void,
+    //     )?;
+    //     self.obj.set_property(name, f)
+    // }
 
-impl<O, A1> DefMethod1<O, A1> for ClassBuilder<O>
-where
-    A1: FromNapi,
-{
-    fn method<T, F>(&self, name: &str, f: F) -> JsResult<()>
-    where
-        F: Fn(JsEnv, &O, A1) -> Result<T, JsError>,
-        T: ToNapi,
-        A1: FromNapi,
-    {
-        let f = self.env.function(
-            name,
-            Some(call_method_1::<O, T, F, A1>),
-            Box::into_raw(Box::new(f)) as *mut c_void,
-        )?;
-        self.obj.set_property(name, f)
-    }
-}
+    // fn method_mut_0<T, F>(&self, name: &str, f: F) -> JsResult<()>
+    // where
+    //     F: Fn(JsEnv, &mut O) -> Result<T, JsError>,
+    //     T: ToNapi,
+    // {
+    //     let f = self.env.function(
+    //         name,
+    //         Some(call_method_mut_0::<O, T, F>),
+    //         Box::into_raw(Box::new(f)) as *mut c_void,
+    //     )?;
+    //     self.obj.set_property(name, f)
+    // }
 
-pub trait DefMethodMut0<O> {
-    fn method_mut<T, F>(&self, name: &str, f: F) -> JsResult<()>
-    where
-        F: Fn(JsEnv, &mut O) -> Result<T, JsError>,
-        T: ToNapi;
-}
-
-impl<O> DefMethodMut0<O> for ClassBuilder<O> {
-    fn method_mut<T, F>(&self, name: &str, f: F) -> JsResult<()>
-    where
-        F: Fn(JsEnv, &mut O) -> Result<T, JsError>,
-        T: ToNapi,
-    {
-        let f = self.env.function(
-            name,
-            Some(call_method_mut_0::<O, T, F>),
-            Box::into_raw(Box::new(f)) as *mut c_void,
-        )?;
-        self.obj.set_property(name, f)
-    }
-}
-
-pub trait DefMethodMut1<O, A1>
-where
-    A1: FromNapi,
-{
-    fn method_mut<T, F>(&self, name: &str, f: F) -> JsResult<()>
-    where
-        F: Fn(JsEnv, &mut O, A1) -> Result<T, JsError>,
-        T: ToNapi;
-}
-
-impl<O, A1> DefMethodMut1<O, A1> for ClassBuilder<O>
-where
-    A1: FromNapi,
-{
-    fn method_mut<T, F>(&self, name: &str, f: F) -> JsResult<()>
-    where
-        F: Fn(JsEnv, &mut O, A1) -> Result<T, JsError>,
-        T: ToNapi,
-        A1: FromNapi,
-    {
-        let f = self.env.function(
-            name,
-            Some(call_method_mut_1::<O, T, F, A1>),
-            Box::into_raw(Box::new(f)) as *mut c_void,
-        )?;
-        self.obj.set_property(name, f)
-    }
+    // fn method_mut_1<T, F, A1>(&self, name: &str, f: F) -> JsResult<()>
+    // where
+    //     F: Fn(JsEnv, &mut O, A1) -> Result<T, JsError>,
+    //     T: ToNapi,
+    //     A1: FromNapi,
+    // {
+    //     let f = self.env.function(
+    //         name,
+    //         Some(call_method_mut_1::<O, T, F, A1>),
+    //         Box::into_raw(Box::new(f)) as *mut c_void,
+    //     )?;
+    //     self.obj.set_property(name, f)
+    // }
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -571,87 +543,38 @@ unsafe extern "C" fn finalize_arc_rw_lock_external(
     data: *mut c_void,
     _hint: *mut c_void,
 ) {
+    println!("finalizing arc_rw_lock_external");
+
     // this kills the Arc.
     Arc::from_raw(data);
 }
 
-unsafe extern "C" fn call_method_0<O, T, F>(env: napi_env, info: napi_callback_info) -> napi_value
+const MAX_ARG_COUNT: usize = 4;
+
+struct MethodContext<O, T, F>
 where
-    F: Fn(JsEnv, &O) -> Result<T, JsError>,
     T: ToNapi,
 {
-    let env = JsEnv::new(env);
-    env.throwable(&|| {
-        let info = env.get_method_info(info, 0)?;
-        let this = info.this;
-
-        let closure = info.data as *mut F;
-        let closure = Box::from_raw(closure);
-        let this_guard = this.read().unwrap();
-        closure(env, &this_guard)?.to_napi(env)
-    })
+    f: F,
+    call: fn(F, JsEnv, Arc<RwLock<O>>, Vec<napi_value>) -> Result<T, JsError>,
 }
 
-unsafe extern "C" fn call_method_1<O, T, F, A1>(
-    env: napi_env,
-    info: napi_callback_info,
-) -> napi_value
+unsafe extern "C" fn call_method<O, T, F>(env: napi_env, info: napi_callback_info) -> napi_value
 where
-    F: Fn(JsEnv, &O, A1) -> Result<T, JsError>,
-    T: ToNapi,
-    A1: FromNapi,
-{
-    let env = JsEnv::new(env);
-    env.throwable(&|| {
-        let info = env.get_method_info(info, 1)?;
-        let this = info.this;
-
-        let closure = info.data as *mut F;
-        let closure = Box::from_raw(closure);
-        let this_guard = this.read().unwrap();
-        closure(env, &this_guard, A1::from_napi(info.args[0])?)?.to_napi(env)
-    })
-}
-
-unsafe extern "C" fn call_method_mut_0<O, T, F>(
-    env: napi_env,
-    info: napi_callback_info,
-) -> napi_value
-where
-    F: Fn(JsEnv, &mut O) -> Result<T, JsError>,
     T: ToNapi,
 {
     let env = JsEnv::new(env);
     env.throwable(&|| {
-        let info = env.get_method_info(info, 0)?;
-        let this = info.this;
-
-        let closure = info.data as *mut F;
-        let closure = Box::from_raw(closure);
-        let mut this_guard = this.write().unwrap();
-
-        closure(env, &mut this_guard)?.to_napi(env)
-    })
-}
-
-unsafe extern "C" fn call_method_mut_1<O, T, F, A1>(
-    env: napi_env,
-    info: napi_callback_info,
-) -> napi_value
-where
-    F: Fn(JsEnv, &mut O, A1) -> Result<T, JsError>,
-    T: ToNapi,
-    A1: FromNapi,
-{
-    let env = JsEnv::new(env);
-    env.throwable(&|| {
-        let info = env.get_method_info(info, 1)?;
-        let this = info.this;
-
-        let closure = info.data as *mut F;
-        let closure = Box::from_raw(closure);
-        let mut this_guard = this.write().unwrap();
-
-        closure(env, &mut this_guard, A1::from_napi(info.args[0])?)?.to_napi(env)
+        println!("getting method info");
+        let info = env.get_method_info(info, MAX_ARG_COUNT)?;
+        println!("got method info");
+        let ctx = info.data as *mut MethodContext<O, T, F>;
+        let ctx = Box::from_raw(ctx);
+        println!("calling ctx.call, {:?}", ctx.call);
+        let ret = (ctx.call)(ctx.f, env, info.this, info.args)?;
+        println!("after ctx.call");
+        let ret = ret.to_napi(env);
+        println!("ret napi_value = {:?}", ret);
+        ret
     })
 }

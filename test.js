@@ -6,6 +6,9 @@ console.log("valet is: ")
 console.log(valet);
 
 for (let i = 0; i < 5; i++) {
+    console.log("calling set...");
     valet.set(10 * i);
+    console.log("calling get...");
     console.log(valet.get());
+    console.log("end of loop...");
 }

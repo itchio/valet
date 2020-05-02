@@ -13,6 +13,7 @@ unsafe fn ctor() {
     register_module("valet", "lib.rs", init);
 }
 
+#[derive(Debug)]
 struct State {
     count: i64,
 }
@@ -23,7 +24,7 @@ unsafe extern "C" fn init(env: sys::napi_env, exports: sys::napi_value) -> sys::
     env.throwable::<JsError>(&|| {
         println!("In init! exports = {:?}", exports);
 
-        libbutler::PrintCountry();
+        // libbutler::PrintCountry();
         // libbutler::StartServer();
 
         let ret = env.object()?;
@@ -38,27 +39,27 @@ unsafe extern "C" fn init(env: sys::napi_env, exports: sys::napi_value) -> sys::
         })?;
 
         let state = State { count: 0 };
-        // let state = Arc::new(RwLock::new(state));
-
-        // let handle = env.arc_rw_lock_external(state)?;
-        // ret.set_property("handle", handle)?;
-
-        // ret.set_method("say_hi", |_env, this: &mut State| {
-        //     let val = this.count;
-        //     this.count += 1;
-        //     Ok(val)
-        // })?;
 
         ret.build_class(state, |cb| {
-            cb.method_mut("set", |_env, this, newcount| {
+            cb.method_0("set", |_env, this /*, newcount */| {
+                println!("in set!, this = {:?}", this);
+
                 let val = this.count;
-                this.count = newcount;
+                println!("read val = {}", val);
+                // this.count = newcount;
+
+                println!("returning val...");
                 Ok(val)
             })?;
 
-            cb.method_mut("get", |_env, this| {
+            cb.method_0("get", |_env, this| {
+                println!("in get!, this = {:?}", this);
+
                 let val = this.count;
-                this.count += 1;
+                println!("read val = {}", val);
+                // this.count += 1;
+
+                println!("returning val...");
                 Ok(val)
             })?;
 
