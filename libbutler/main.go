@@ -14,11 +14,11 @@ import (
 //
 // typedef struct {
 //   char *value;
-//   int len;
+//   size_t len;
 // } NString;
 //
 // typedef struct {
-//   NString name;
+//   NString db_path;
 //   int64_t id;
 // } ServerOpts;
 import "C"
@@ -47,7 +47,7 @@ func PrintCountry() {
 //export ServerNew
 func ServerNew(cOpts *C.ServerOpts) C.int {
 	opts := server.NewOpts{
-		DBPath: C.GoStringN(cOpts.name.value, cOpts.name.len),
+		DBPath: nstring(&cOpts.db_path),
 	}
 
 	id, err := server.New(opts)
@@ -58,6 +58,10 @@ func ServerNew(cOpts *C.ServerOpts) C.int {
 
 	cOpts.id = C.int64_t(id)
 	return 0
+}
+
+func nstring(n *C.NString) string {
+	return C.GoStringN(n.value, C.int(n.len))
 }
 
 func doPanic() {

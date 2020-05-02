@@ -12,3 +12,8 @@ for (let i = 0; i < 5; i++) {
     tester.set(10 * i);
     console.log(tester.get());
 }
+
+let s = valet.new_server();
+console.log(s);
+
+

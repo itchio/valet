@@ -2,6 +2,13 @@ use nj_sys as sys;
 
 mod js;
 use js::*;
+use std::os::raw::c_char;
+
+#[derive(thiserror::Error, Debug)]
+enum ValetError {
+    #[error("libbutler error")]
+    Butler,
+}
 
 #[no_mangle]
 unsafe fn ctor() {
@@ -23,9 +30,6 @@ unsafe extern "C" fn init(env: sys::napi_env, exports: sys::napi_value) -> sys::
     let env = JsEnv::new(env);
     env.throwable::<JsError>(&|| {
         println!("In init! exports = {:?}", exports);
-
-        // libbutler::PrintCountry();
-        // libbutler::StartServer();
 
         let ret = env.object()?;
 
@@ -55,6 +59,27 @@ unsafe extern "C" fn init(env: sys::napi_env, exports: sys::napi_value) -> sys::
             Ok(())
         })?;
         ret.set_property("tester", tester)?;
+
+        ret.build_class((), |cb| {
+            cb.method_0("new_server", |_env, _this| {
+                println!("Calling ServerNew");
+                let db_path = "/home/amos/.config/itch/db/butler.db";
+                let mut opts = libbutler::ServerOpts {
+                    id: 0,
+                    db_path: libbutler::NString {
+                        value: db_path.as_ptr() as *const c_char,
+                        len: db_path.len(),
+                    },
+                };
+                let status = libbutler::ServerNew(&mut opts);
+                if !status.success() {
+                    return Err(ValetError::Butler.into());
+                }
+                Ok(opts.id)
+            })?;
+
+            Ok(())
+        })?;
 
         Ok(ret.to_napi(env)?)
     })
