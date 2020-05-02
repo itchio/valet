@@ -2,7 +2,6 @@ use nj_sys as sys;
 
 mod js;
 use js::*;
-use std::sync::{Arc, RwLock};
 
 #[no_mangle]
 unsafe fn ctor() {
@@ -39,15 +38,31 @@ unsafe extern "C" fn init(env: sys::napi_env, exports: sys::napi_value) -> sys::
         })?;
 
         let state = State { count: 0 };
-        let state = Arc::new(RwLock::new(state));
+        // let state = Arc::new(RwLock::new(state));
 
-        let handle = env.arc_rw_lock_external(state)?;
-        ret.set_property("handle", handle)?;
+        // let handle = env.arc_rw_lock_external(state)?;
+        // ret.set_property("handle", handle)?;
 
-        ret.set_method("say_hi", |_env, this: &mut State| {
-            let val = this.count;
-            this.count += 1;
-            Ok(val)
+        // ret.set_method("say_hi", |_env, this: &mut State| {
+        //     let val = this.count;
+        //     this.count += 1;
+        //     Ok(val)
+        // })?;
+
+        ret.build_class(state, |cb| {
+            cb.method_mut("set", |_env, this, newcount| {
+                let val = this.count;
+                this.count = newcount;
+                Ok(val)
+            })?;
+
+            cb.method_mut("get", |_env, this| {
+                let val = this.count;
+                this.count += 1;
+                Ok(val)
+            })?;
+
+            Ok(())
         })?;
 
         Ok(ret.to_napi(env)?)

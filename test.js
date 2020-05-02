@@ -6,5 +6,6 @@ console.log("valet is: ")
 console.log(valet);
 
 for (let i = 0; i < 5; i++) {
-    console.log(valet.say_hi());
+    valet.set(10 * i);
+    console.log(valet.get());
 }
