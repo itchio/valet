@@ -226,7 +226,7 @@ impl<O> ClassBuilder<O> {
         T: ToNapi,
     {
         fn call<O, T, F>(
-            f: F,
+            f: &F,
             env: JsEnv,
             this: Arc<RwLock<O>>,
             _args: Vec<napi_value>,
@@ -505,7 +505,7 @@ impl JsEnv {
         unsafe { napi_throw_error(self.0, code.as_ptr(), msg.as_ptr()) };
     }
 
-    pub fn type_of<V: Into<napi_value>>(&self, v: V) -> JsResult<JsValueType> {
+    pub fn type_of<V: Into<napi_value>>(self, v: V) -> JsResult<JsValueType> {
         let mut value = 0;
         unsafe { napi_typeof(self.0, v.into(), &mut value) }.check()?;
         Ok(JsValueType(value))
@@ -556,10 +556,10 @@ where
     T: ToNapi,
 {
     f: F,
-    call: fn(F, JsEnv, Arc<RwLock<O>>, Vec<napi_value>) -> Result<T, JsError>,
+    call: fn(&F, JsEnv, Arc<RwLock<O>>, Vec<napi_value>) -> Result<T, JsError>,
 }
 
-unsafe extern "C" fn call_method<O, T, F>(env: napi_env, info: napi_callback_info) -> napi_value
+unsafe extern "C" fn call_method<'a, O, T, F>(env: napi_env, info: napi_callback_info) -> napi_value
 where
     T: ToNapi,
 {
@@ -570,8 +570,9 @@ where
         println!("got method info");
         let ctx = info.data as *mut MethodContext<O, T, F>;
         let ctx = Box::from_raw(ctx);
-        println!("calling ctx.call, {:?}", ctx.call);
-        let ret = (ctx.call)(ctx.f, env, info.this, info.args)?;
+        println!("calling ctx.call");
+        let ret = (ctx.call)(&ctx.f, env, info.this, info.args)?;
+        Box::leak(ctx);
         println!("after ctx.call");
         let ret = ret.to_napi(env);
         println!("ret napi_value = {:?}", ret);

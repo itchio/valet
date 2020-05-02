@@ -1,4 +1,5 @@
-const valet = require("./artifacts/x86_64-windows/index.node");
+// const valet = require("./artifacts/x86_64-windows/index.node");
+const valet = require("./artifacts/x86_64-linux/index.node");
 global.valet = valet;
 
 console.log("===========================")
