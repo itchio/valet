@@ -76,46 +76,62 @@ macro_rules! impl_to_napi {
     };
 }
 
-#[repr(transparent)]
-pub struct JsError(pub napi_status);
+pub enum JsError {
+    Napi(napi_status),
+    Custom(Box<dyn fmt::Display>),
+}
+
+impl<T> From<T> for JsError
+where
+    T: Error + 'static,
+{
+    fn from(err: T) -> Self {
+        JsError::Custom(Box::new(err))
+    }
+}
 
 impl fmt::Display for JsError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        #[allow(non_upper_case_globals)]
-        let desc = match self.0 {
-            napi_status_napi_invalid_arg => "invalid argument",
-            napi_status_napi_object_expected => "object expected",
-            napi_status_napi_string_expected => "string expected",
-            napi_status_napi_name_expected => "name expected",
-            napi_status_napi_function_expected => "function expected",
-            napi_status_napi_number_expected => "number expected",
-            napi_status_napi_boolean_expected => "boolean expected",
-            napi_status_napi_array_expected => "array expected",
-            napi_status_napi_generic_failure => "generic failure",
-            napi_status_napi_pending_exception => "pending exception",
-            napi_status_napi_cancelled => "cancelled",
-            napi_status_napi_escape_called_twice => "escape called twice",
-            napi_status_napi_handle_scope_mismatch => "handle scope mismatch",
-            napi_status_napi_callback_scope_mismatch => "callback scope mismatch",
-            napi_status_napi_queue_full => "queue full",
-            napi_status_napi_closing => "closing",
-            napi_status_napi_bigint_expected => "bigint expected",
-            napi_status_napi_date_expected => "date expected",
-            napi_status_napi_arraybuffer_expected => "arraybuffer expected",
-            napi_status_napi_detachable_arraybuffer_expected => "detachable arraybuffer expected",
-            _ => "unknown error",
-        };
-        write!(f, "js error #{}: {}", desc, self.0)
+        match self {
+            JsError::Napi(code) => {
+                #[allow(non_upper_case_globals)]
+                let desc = match *code {
+                    napi_status_napi_invalid_arg => "invalid argument",
+                    napi_status_napi_object_expected => "object expected",
+                    napi_status_napi_string_expected => "string expected",
+                    napi_status_napi_name_expected => "name expected",
+                    napi_status_napi_function_expected => "function expected",
+                    napi_status_napi_number_expected => "number expected",
+                    napi_status_napi_boolean_expected => "boolean expected",
+                    napi_status_napi_array_expected => "array expected",
+                    napi_status_napi_generic_failure => "generic failure",
+                    napi_status_napi_pending_exception => "pending exception",
+                    napi_status_napi_cancelled => "cancelled",
+                    napi_status_napi_escape_called_twice => "escape called twice",
+                    napi_status_napi_handle_scope_mismatch => "handle scope mismatch",
+                    napi_status_napi_callback_scope_mismatch => "callback scope mismatch",
+                    napi_status_napi_queue_full => "queue full",
+                    napi_status_napi_closing => "closing",
+                    napi_status_napi_bigint_expected => "bigint expected",
+                    napi_status_napi_date_expected => "date expected",
+                    napi_status_napi_arraybuffer_expected => "arraybuffer expected",
+                    napi_status_napi_detachable_arraybuffer_expected => {
+                        "detachable arraybuffer expected"
+                    }
+                    _ => "unknown error",
+                };
+                write!(f, "js error #{}: {}", desc, code)
+            }
+            JsError::Custom(inner) => write!(f, "{}", inner),
+        }
     }
 }
 
 impl fmt::Debug for JsError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{} (code {})", self, self.0)
+        write!(f, "JsError({})", self)
     }
 }
-
-impl Error for JsError {}
 
 type JsResult<T> = Result<T, JsError>;
 
@@ -128,7 +144,7 @@ impl Check for napi_status {
         if self == napi_status_napi_ok {
             Ok(())
         } else {
-            Err(JsError(self))
+            Err(JsError::Napi(self))
         }
     }
 }
