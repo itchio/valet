@@ -41,25 +41,14 @@ unsafe extern "C" fn init(env: sys::napi_env, exports: sys::napi_value) -> sys::
         let state = State { count: 0 };
 
         ret.build_class(state, |cb| {
-            cb.method_0("set", |_env, this /*, newcount */| {
-                println!("in set!, this = {:?}", this);
-
-                let val = this.count;
-                println!("read val = {}", val);
-                // this.count = newcount;
-
-                println!("returning val...");
-                Ok(val)
+            cb.method_mut_1("set", |_env, this, newcount| {
+                this.count = newcount;
+                Ok(())
             })?;
 
             cb.method_0("get", |_env, this| {
-                println!("in get!, this = {:?}", this);
-
                 let val = this.count;
-                println!("read val = {}", val);
                 // this.count += 1;
-
-                println!("returning val...");
                 Ok(val)
             })?;
 
