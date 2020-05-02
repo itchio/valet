@@ -19,7 +19,7 @@ impl ToNapi for () {
 }
 
 impl ToNapi for napi_value {
-    fn to_napi(&self, env: JsEnv) -> JsResult<napi_value> {
+    fn to_napi(&self, _env: JsEnv) -> JsResult<napi_value> {
         Ok(*self)
     }
 }
@@ -69,7 +69,7 @@ impl ToNapi for bool {
 macro_rules! impl_to_napi {
     ($t:ty) => {
         impl ToNapi for $t {
-            fn to_napi(&self, env: JsEnv) -> JsResult<napi_value> {
+            fn to_napi(&self, _env: JsEnv) -> JsResult<napi_value> {
                 Ok(self.value)
             }
         }
@@ -224,14 +224,7 @@ pub struct JMethodInfo<T, D> {
     pub data: *mut D,
 }
 
-#[derive(Clone, Copy)]
-pub struct ArcRwLockExternal {
-    env: JsEnv,
-    value: napi_value,
-}
-
-impl_to_napi!(ArcRwLockExternal);
-
+#[allow(dead_code)]
 impl JsEnv {
     pub fn new(e: napi_env) -> Self {
         e.into()
@@ -439,9 +432,9 @@ pub fn register_module(
 }
 
 unsafe extern "C" fn finalize_arc_rw_lock_external(
-    env: napi_env,
+    _env: napi_env,
     data: *mut c_void,
-    hint: *mut c_void,
+    _hint: *mut c_void,
 ) {
     // this kills the Arc.
     Arc::from_raw(data);
