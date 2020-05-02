@@ -6,7 +6,9 @@ console.log("===========================")
 console.log("valet is: ")
 console.log(valet);
 
+let {tester} = valet;
+
 for (let i = 0; i < 5; i++) {
-    valet.set(10 * i);
-    console.log(valet.get());
+    tester.set(10 * i);
+    console.log(tester.get());
 }

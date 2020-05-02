@@ -7,10 +7,11 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"sync"
 
 	"crawshaw.io/sqlite/sqlitex"
-	"github.com/itchio/butler/butlerd"
 	"github.com/itchio/butler/butlerd/horror"
+	"github.com/itchio/butler/butlerd/jsonrpc2"
 	"github.com/itchio/butler/cmd/daemon"
 	"github.com/itchio/butler/comm"
 	"github.com/itchio/butler/database"
@@ -19,23 +20,41 @@ import (
 	"github.com/pkg/errors"
 )
 
-func Start() {
-	secret := "foobar"
-	s := butlerd.NewServer(secret)
+type Server struct {
+	transport *directTransport
+	conn      jsonrpc2.Conn
+}
 
-	consumer := &state.Consumer{}
+type NewOpts struct {
+	DBPath string
+}
+
+type ServerID = int64
+
+type serverMap struct {
+	lock *sync.RWMutex
+	m    map[ServerID]*Server
+	rand idMaker
+}
+
+var servers = serverMap{
+	lock: new(sync.RWMutex),
+	m:    make(map[ServerID]*Server),
+	rand: newIdMaker(),
+}
+
+func New(opts NewOpts) (ServerID, error) {
+	if opts.DBPath == "" {
+		return 0, errors.New("DBPath cannot be nil")
+	}
 
 	listener, err := net.Listen("tcp", "127.0.0.1:")
 	must(err)
 
 	log.Printf("Listening on %s", listener.Addr().String())
 
-	shutdownChan := make(chan struct{})
-
 	mansionCtx := mansion.NewContext(nil)
-	// FIXME: just testing
-	mansionCtx.DBPath = "c:/Users/amos/AppData/Roaming/kitch/db/butler.db"
-	mansionCtx.EnsureDBPath()
+	mansionCtx.DBPath = opts.DBPath
 
 	err = os.MkdirAll(filepath.Dir(mansionCtx.DBPath), 0o755)
 	if err != nil {
@@ -70,20 +89,29 @@ func Start() {
 		mansionCtx.Must(errors.WithMessage(err, "preparing DB"))
 	}
 
+	// TODO: don't use mansionCtx when building router
 	router := daemon.GetRouter(dbPool, mansionCtx)
 
 	ctx := context.Background()
-	go func() {
-		err = s.ServeTCP(ctx, butlerd.ServeTCPParams{
-			Handler:  router,
-			Consumer: consumer,
-			Listener: listener,
-			Secret:   secret,
 
-			ShutdownChan: shutdownChan,
-		})
-		must(err)
-	}()
+	transport := newDirectTransport()
+	conn := jsonrpc2.NewConn(ctx, transport, router)
+
+	s := &Server{
+		conn:      conn,
+		transport: transport,
+	}
+	servers.lock.Lock()
+	id := servers.rand.next()
+	servers.m[id] = s
+	servers.lock.Unlock()
+	return id, nil
+}
+
+func Free(id ServerID) {
+	servers.lock.Lock()
+	delete(servers.m, id)
+	servers.lock.Unlock()
 }
 
 func must(err error) {

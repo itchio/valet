@@ -4,11 +4,23 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"net/http"
 
 	"github.com/itchio/valet/libbutler/server"
 )
 
+// #include <stdint.h>
+//
+// typedef struct {
+//   char *value;
+//   int len;
+// } NString;
+//
+// typedef struct {
+//   NString name;
+//   int64_t id;
+// } ServerOpts;
 import "C"
 
 type CountryResponse struct {
@@ -32,9 +44,20 @@ func PrintCountry() {
 	doPanic()
 }
 
-//export StartServer
-func StartServer() {
-	server.Start()
+//export ServerNew
+func ServerNew(cOpts *C.ServerOpts) C.int {
+	opts := server.NewOpts{
+		DBPath: C.GoStringN(cOpts.name.value, cOpts.name.len),
+	}
+
+	id, err := server.New(opts)
+	if err != nil {
+		log.Printf("Could not create new server: %+v", err)
+		return 1
+	}
+
+	cOpts.id = C.int64_t(id)
+	return 0
 }
 
 func doPanic() {

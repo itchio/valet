@@ -38,9 +38,9 @@ unsafe extern "C" fn init(env: sys::napi_env, exports: sys::napi_value) -> sys::
             version
         })?;
 
+        let tester = env.object()?;
         let state = State { count: 0 };
-
-        ret.build_class(state, |cb| {
+        tester.build_class(state, |cb| {
             cb.method_mut_1("set", |_env, this, newcount| {
                 this.count = newcount;
                 Ok(())
@@ -54,6 +54,7 @@ unsafe extern "C" fn init(env: sys::napi_env, exports: sys::napi_value) -> sys::
 
             Ok(())
         })?;
+        ret.set_property("tester", tester)?;
 
         Ok(ret.to_napi(env)?)
     })
