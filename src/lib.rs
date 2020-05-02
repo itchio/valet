@@ -38,29 +38,18 @@ unsafe extern "C" fn init(env: sys::napi_env, exports: sys::napi_value) -> sys::
             version
         })?;
 
-        unsafe extern "C" fn say_hi(
-            env: sys::napi_env,
-            info: sys::napi_callback_info,
-        ) -> sys::napi_value {
-            let env = JsEnv::new(env);
-            env.throwable::<JsError>(&|| {
-                let info = env.get_method_info::<State>(info, 1)?;
-                println!("first arg type = {:?}", env.type_of(info.args[0]));
-                let mut data = info.this.write().unwrap();
-                let val = data.count;
-                data.count += 1;
-                val.to_napi(env)
-            })
-        }
-
         let state = State { count: 0 };
         let state = Arc::new(RwLock::new(state));
 
         let handle = env.arc_rw_lock_external(state)?;
         ret.set_property("handle", handle)?;
 
-        let f = env.function("say_hi", Some(say_hi))?;
-        ret.set_property("say_hi", f)?;
+        ret.set_method::<State, JsError, _, _>("say_hi", |_env, this| {
+            let mut this = this.write().unwrap();
+            let val = this.count;
+            this.count += 1;
+            Ok(val)
+        })?;
 
         Ok(ret.to_napi(env)?)
     })

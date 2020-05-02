@@ -5,10 +5,6 @@ console.log("===========================")
 console.log("valet is: ")
 console.log(valet);
 
-console.log("=====================");
-valet.say_hi();
-console.log("=====================");
-valet.say_hi("ha");
-console.log("=====================");
-valet.say_hi(32);
-console.log("=====================");
+for (let i = 0; i < 5; i++) {
+    console.log(valet.say_hi());
+}

@@ -169,15 +169,18 @@ impl JsValue {
         Ok(value)
     }
 
-    pub fn set_method<F, O, T: ToNapi, E: fmt::Display>(&self, name: &str, f: F) -> JsResult<()>
+    pub fn set_method<O, E, T, F>(&self, name: &str, f: F) -> JsResult<()>
     where
-        F: Fn(JsEnv, Arc<RwLock<O>>, Vec<JsValue>) -> Result<T, E>,
-        O: ToNapi,
+        F: Fn(JsEnv, Arc<RwLock<O>>) -> Result<T, E>,
+        T: ToNapi,
         E: fmt::Display,
     {
-        self.env
-            .function(name, Some(call_method), Box::into_raw(Box::new(move || {})));
-        todo!()
+        let f = self.env.function(
+            name,
+            Some(call_method0::<O, E, T, F>),
+            Box::into_raw(Box::new(f)) as *mut c_void,
+        )?;
+        self.set_property(name, f)
     }
 }
 
@@ -215,9 +218,10 @@ impl fmt::Debug for JsValueType {
     }
 }
 
-pub struct JMethodInfo<T> {
+pub struct JMethodInfo<T, D> {
     pub this: Arc<RwLock<T>>,
     pub args: Vec<napi_value>,
+    pub data: *mut D,
 }
 
 #[derive(Clone, Copy)]
@@ -341,14 +345,15 @@ impl JsEnv {
         Ok(value.to_js_value(self))
     }
 
-    pub fn get_method_info<T>(
+    pub fn get_method_info<T, D>(
         self,
         info: napi_callback_info,
         arg_count: usize,
-    ) -> JsResult<JMethodInfo<T>> {
+    ) -> JsResult<JMethodInfo<T, D>> {
         let mut args = vec![ptr::null_mut(); arg_count];
         let mut argc: usize = arg_count;
         let mut this_arg = ptr::null_mut();
+        let mut data: *mut c_void = ptr::null_mut();
         unsafe {
             napi_get_cb_info(
                 self.0,
@@ -356,7 +361,7 @@ impl JsEnv {
                 &mut argc,
                 args.as_mut_ptr(),
                 &mut this_arg,
-                ptr::null_mut(),
+                &mut data,
             )
         }
         .check()?;
@@ -371,7 +376,11 @@ impl JsEnv {
         let clone = Arc::clone(&arc);
         let _ = Arc::into_raw(arc);
 
-        Ok(JMethodInfo { this: clone, args })
+        Ok(JMethodInfo {
+            this: clone,
+            args,
+            data: data as *mut D,
+        })
     }
 
     pub fn throwable<E>(self, f: &dyn Fn() -> Result<napi_value, E>) -> napi_value
@@ -438,6 +447,26 @@ unsafe extern "C" fn finalize_arc_rw_lock_external(
     Arc::from_raw(data);
 }
 
-unsafe extern "C" fn call_method(env: napi_env, info: napi_callback_info) -> napi_value {
+unsafe extern "C" fn call_method0<O, E, T, F>(env: napi_env, info: napi_callback_info) -> napi_value
+where
+    F: Fn(JsEnv, Arc<RwLock<O>>) -> Result<T, E>,
+    T: ToNapi,
+    E: fmt::Display,
+{
     let env = JsEnv::new(env);
+    env.throwable(&|| {
+        let info = env.get_method_info(info, 0)?;
+        let this = info.this;
+
+        let closure = info.data as *mut F;
+        let closure = Box::from_raw(closure);
+        let ret = closure(env, this);
+        match ret {
+            Ok(ret) => ret.to_napi(env),
+            Err(e) => {
+                env.throw_error(e);
+                Ok(env.undefined().value)
+            }
+        }
+    })
 }
