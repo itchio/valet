@@ -185,15 +185,14 @@ impl JsValue {
         Ok(value)
     }
 
-    pub fn set_method<O, E, T, F>(&self, name: &str, f: F) -> JsResult<()>
+    pub fn set_method<O, T, F>(&self, name: &str, f: F) -> JsResult<()>
     where
-        F: Fn(JsEnv, Arc<RwLock<O>>) -> Result<T, E>,
+        F: Fn(JsEnv, &mut O) -> Result<T, JsError>,
         T: ToNapi,
-        E: fmt::Display,
     {
         let f = self.env.function(
             name,
-            Some(call_method0::<O, E, T, F>),
+            Some(call_method_mut_0::<O, T, F>),
             Box::into_raw(Box::new(f)) as *mut c_void,
         )?;
         self.set_property(name, f)
@@ -456,11 +455,13 @@ unsafe extern "C" fn finalize_arc_rw_lock_external(
     Arc::from_raw(data);
 }
 
-unsafe extern "C" fn call_method0<O, E, T, F>(env: napi_env, info: napi_callback_info) -> napi_value
+unsafe extern "C" fn call_method_mut_0<O, T, F>(
+    env: napi_env,
+    info: napi_callback_info,
+) -> napi_value
 where
-    F: Fn(JsEnv, Arc<RwLock<O>>) -> Result<T, E>,
+    F: Fn(JsEnv, &mut O) -> Result<T, JsError>,
     T: ToNapi,
-    E: fmt::Display,
 {
     let env = JsEnv::new(env);
     env.throwable(&|| {
@@ -469,13 +470,7 @@ where
 
         let closure = info.data as *mut F;
         let closure = Box::from_raw(closure);
-        let ret = closure(env, this);
-        match ret {
-            Ok(ret) => ret.to_napi(env),
-            Err(e) => {
-                env.throw_error(e);
-                Ok(env.undefined().value)
-            }
-        }
+        let mut this_guard = this.write().unwrap();
+        closure(env, &mut this_guard)?.to_napi(env)
     })
 }

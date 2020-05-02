@@ -44,8 +44,7 @@ unsafe extern "C" fn init(env: sys::napi_env, exports: sys::napi_value) -> sys::
         let handle = env.arc_rw_lock_external(state)?;
         ret.set_property("handle", handle)?;
 
-        ret.set_method::<State, JsError, _, _>("say_hi", |_env, this| {
-            let mut this = this.write().unwrap();
+        ret.set_method("say_hi", |_env, this: &mut State| {
             let val = this.count;
             this.count += 1;
             Ok(val)
