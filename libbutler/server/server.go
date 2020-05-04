@@ -3,8 +3,6 @@ package server
 import (
 	"context"
 	"fmt"
-	"log"
-	"net"
 	"os"
 	"path/filepath"
 	"sync"
@@ -48,15 +46,11 @@ func New(opts NewOpts) (ServerID, error) {
 		return 0, errors.New("DBPath cannot be nil")
 	}
 
-	listener, err := net.Listen("tcp", "127.0.0.1:")
-	must(err)
-
-	log.Printf("Listening on %s", listener.Addr().String())
-
 	mansionCtx := mansion.NewContext(nil)
+	mansionCtx.SetAddress("https://itch.io")
 	mansionCtx.DBPath = opts.DBPath
 
-	err = os.MkdirAll(filepath.Dir(mansionCtx.DBPath), 0o755)
+	err := os.MkdirAll(filepath.Dir(mansionCtx.DBPath), 0o755)
 	if err != nil {
 		mansionCtx.Must(errors.WithMessage(err, "creating DB directory if necessary"))
 	}
@@ -72,7 +66,6 @@ func New(opts NewOpts) (ServerID, error) {
 	if err != nil {
 		mansionCtx.Must(errors.WithMessage(err, "opening DB for the first time"))
 	}
-	defer dbPool.Close()
 
 	err = func() (retErr error) {
 		defer horror.RecoverInto(&retErr)
@@ -106,6 +99,22 @@ func New(opts NewOpts) (ServerID, error) {
 	servers.m[id] = s
 	servers.lock.Unlock()
 	return id, nil
+}
+
+func Send(id ServerID, payload []byte) {
+	servers.lock.Lock()
+	server := servers.m[id]
+	servers.lock.Unlock()
+
+	server.transport.incoming <- payload
+}
+
+func Recv(id ServerID) []byte {
+	servers.lock.Lock()
+	server := servers.m[id]
+	servers.lock.Unlock()
+
+	return <-server.transport.outgoing
 }
 
 func Free(id ServerID) {

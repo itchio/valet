@@ -1,16 +1,15 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"log"
-	"net/http"
+	"unsafe"
 
 	"github.com/itchio/valet/libbutler/server"
 )
 
 // #include <stdint.h>
+// #include <stdlib.h>
 //
 // typedef struct {
 //   char *value;
@@ -22,27 +21,6 @@ import (
 //   int64_t id;
 // } ServerOpts;
 import "C"
-
-type CountryResponse struct {
-	Country string `json:"country"`
-}
-
-//export PrintCountry
-func PrintCountry() {
-	res, err := http.Get("https://itch.io/country")
-	must(err)
-
-	body, err := ioutil.ReadAll(res.Body)
-	must(err)
-
-	var cres CountryResponse
-	err = json.Unmarshal(body, &cres)
-	must(err)
-
-	fmt.Printf("You are in: %s\n", cres.Country)
-
-	doPanic()
-}
 
 //export ServerNew
 func ServerNew(cOpts *C.ServerOpts) C.int {
@@ -58,6 +36,33 @@ func ServerNew(cOpts *C.ServerOpts) C.int {
 
 	cOpts.id = C.int64_t(id)
 	return 0
+}
+
+//export ServerSend
+func ServerSend(cId C.int64_t, cPayload C.NString) C.int {
+	payload := C.GoBytes(unsafe.Pointer(cPayload.value), C.int(cPayload.len))
+	server.Send(int64(cId), payload)
+	return 0
+}
+
+//export ServerRecv
+func ServerRecv(cId C.int64_t, cPayload *C.NString) C.int {
+	payload := server.Recv(int64(cId))
+	ptr := C.CBytes(payload)
+	cPayload.value = (*C.char)(ptr)
+	cPayload.len = C.size_t(len(payload))
+	return 0
+}
+
+//export ServerFree
+func ServerFree(cId C.int64_t) C.int {
+	server.Free(int64(cId))
+	return 0
+}
+
+//export NStringFree
+func NStringFree(ns C.NString) {
+	C.free(unsafe.Pointer(ns.value))
 }
 
 func nstring(n *C.NString) string {

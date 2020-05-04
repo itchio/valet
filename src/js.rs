@@ -22,6 +22,12 @@ impl FromNapi for i64 {
     }
 }
 
+impl FromNapi for String {
+    fn from_napi(env: JsEnv, value: napi_value) -> JsResult<Self> {
+        env.get_string(value)
+    }
+}
+
 pub trait ToNapi {
     fn to_napi(&self, env: JsEnv) -> JsResult<napi_value>;
 }
@@ -29,6 +35,12 @@ pub trait ToNapi {
 impl ToNapi for () {
     fn to_napi(&self, env: JsEnv) -> JsResult<napi_value> {
         Ok(env.undefined().value)
+    }
+}
+
+impl ToNapi for String {
+    fn to_napi(&self, env: JsEnv) -> JsResult<napi_value> {
+        Ok(env.string(self)?.value)
     }
 }
 
@@ -426,6 +438,31 @@ impl JsEnv {
     pub fn get_double(self, value: napi_value) -> JsResult<f64> {
         let mut res = 0.0;
         unsafe { napi_get_value_double(self.0, value, &mut res) }.check()?;
+        Ok(res)
+    }
+
+    pub fn get_string(self, value: napi_value) -> JsResult<String> {
+        let mut len = 0;
+        unsafe {
+            napi_get_value_string_utf8(self.0, value, ptr::null_mut(), 0, &mut len);
+        }
+
+        let mut copied: usize = 0;
+        // TODO: make that more optimal?
+        let mut res = String::with_capacity(len + 1);
+        for _ in 0..len {
+            res.push('\0');
+        }
+        unsafe {
+            napi_get_value_string_utf8(
+                self.0,
+                value,
+                res.as_mut_ptr() as *mut i8,
+                len + 1,
+                &mut copied,
+            )
+        }
+        .check()?;
         Ok(res)
     }
 

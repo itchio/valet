@@ -1,6 +1,8 @@
 package server
 
-import "github.com/itchio/butler/butlerd/jsonrpc2"
+import (
+	"github.com/itchio/butler/butlerd/jsonrpc2"
+)
 
 type directTransport struct {
 	closed   bool

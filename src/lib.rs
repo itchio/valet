@@ -12,8 +12,6 @@ enum ValetError {
 
 #[no_mangle]
 unsafe fn ctor() {
-    println!("Hi from valet");
-
     #[cfg(windows)]
     napi_stub::setup();
 
@@ -26,11 +24,9 @@ struct State {
 }
 
 #[no_mangle]
-unsafe extern "C" fn init(env: sys::napi_env, exports: sys::napi_value) -> sys::napi_value {
+unsafe extern "C" fn init(env: sys::napi_env, _exports: sys::napi_value) -> sys::napi_value {
     let env = JsEnv::new(env);
     env.throwable::<JsError>(&|| {
-        println!("In init! exports = {:?}", exports);
-
         let ret = env.object()?;
 
         ret.set_property("name", "butler server")?;
@@ -50,19 +46,14 @@ unsafe extern "C" fn init(env: sys::napi_env, exports: sys::napi_value) -> sys::
                 Ok(())
             })?;
 
-            cb.method_0("get", |_env, this| {
-                let val = this.count;
-                // this.count += 1;
-                Ok(val)
-            })?;
+            cb.method_0("get", |_env, this| Ok(this.count))?;
 
             Ok(())
         })?;
         ret.set_property("tester", tester)?;
 
         ret.build_class((), |cb| {
-            cb.method_0("new_server", |_env, _this| {
-                println!("Calling ServerNew");
+            cb.method_0("new_server", |env, _this| {
                 let db_path = "/home/amos/.config/itch/db/butler.db";
                 let mut opts = libbutler::ServerOpts {
                     id: 0,
@@ -75,7 +66,52 @@ unsafe extern "C" fn init(env: sys::napi_env, exports: sys::napi_value) -> sys::
                 if !status.success() {
                     return Err(ValetError::Butler.into());
                 }
-                Ok(opts.id)
+
+                let ret = env.object()?;
+                ret.set_property("id", opts.id)?;
+
+                struct ServerThis {
+                    id: i64,
+                };
+
+                impl Drop for ServerThis {
+                    fn drop(&mut self) {
+                        println!("ServerThis dropped, freeing server");
+                        // TODO: gate
+                        unsafe {
+                            libbutler::ServerFree(self.id);
+                        }
+                    }
+                }
+
+                let this = ServerThis { id: opts.id };
+                ret.build_class(this, |cb| {
+                    cb.method_1("send", |_env, this, payload| {
+                        let s: String = payload;
+                        libbutler::ServerSend(
+                            this.id,
+                            libbutler::NString {
+                                value: s.as_ptr() as *const c_char,
+                                len: s.len(),
+                            },
+                        );
+                        Ok(())
+                    })?;
+
+                    cb.method_0("recv", |_env, this| {
+                        let mut ns = libbutler::NString {
+                            value: std::ptr::null_mut(),
+                            len: 0,
+                        };
+                        libbutler::ServerRecv(this.id, &mut ns);
+                        let s = String::from_raw_parts(ns.value as *mut u8, ns.len, ns.len);
+                        Ok(s)
+                    })?;
+
+                    Ok(())
+                })?;
+
+                Ok(ret)
             })?;
 
             Ok(())
