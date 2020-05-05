@@ -4,7 +4,8 @@
   "description": "butler as a native Node.js addon",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "node release/build.js"
   },
   "repository": {
     "type": "git",
@@ -18,5 +19,8 @@
   "bugs": {
     "url": "https://github.com/itchio/valet/issues"
   },
-  "homepage": "https://github.com/itchio/valet#readme"
+  "homepage": "https://github.com/itchio/valet#readme",
+  "devDependencies": {
+    "@types/node": "^13.13.4"
+  }
 }
