@@ -8,7 +8,7 @@ build:linux:
   script:
     - npm run build -- --os linux --arch x86_64
   artifacts:
-    expire-in: 1 week
+    expire_in: 1 week
     paths: ["artifacts"]
 
 build:darwin:
@@ -17,7 +17,7 @@ build:darwin:
   script:
     - npm run build -- --os darwin --arch x86_64
   artifacts:
-    expire-in: 1 week
+    expire_in: 1 week
     paths: ["artifacts"]
 
 build:windows:
@@ -27,5 +27,5 @@ build:windows:
     - npm run build -- --os windows --arch x86_64
     - npm run build -- --os windows --arch i686
   artifacts:
-    expire-in: 1 week
+    expire_in: 1 week
     paths: ["artifacts"]
