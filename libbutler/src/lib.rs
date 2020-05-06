@@ -6,8 +6,6 @@ extern "C" {
     pub fn ServerSend(id: i64, payload: NString) -> Status;
     pub fn ServerRecv(id: i64, payload: *mut NString) -> Status;
     pub fn ServerFree(id: i64);
-
-    pub fn NStringFree(ns: NString);
 }
 
 #[repr(transparent)]
@@ -21,13 +19,13 @@ impl Status {
 }
 
 #[repr(C)]
-pub struct NString<'a> {
+pub struct NString {
     pub value: *const c_char,
     pub len: usize,
 }
 
-impl<'a> NString<'a> {
-    fn new(s: &'a str) -> Self {
+impl NString {
+    pub fn new(s: &str) -> Self {
         Self {
             value: s.as_ptr() as *const c_char,
             len: s.len(),

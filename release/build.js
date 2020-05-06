@@ -92,6 +92,8 @@ function main(args) {
     console.log(
       `Using detected OS ${yellow(opts.os)} (use ${yellow("--os")} to override)`
     );
+  } else {
+    console.log(`Using specified OS ${yellow(opts.os)}`);
   }
 
   let osInfo = OS_INFOS[opts.os];
@@ -107,6 +109,8 @@ function main(args) {
         "--arch"
       )} to override)`
     );
+  } else {
+    console.log(`Using specified arch ${yellow(opts.arch)}`);
   }
 
   let archInfo = osInfo.architectures[opts.arch];
@@ -134,7 +138,9 @@ function main(args) {
     throw new Error(`Could not find built library: ${e.stack}`);
   }
   info(`Artifact is ${fileSize(stats.size)}`);
-  let artifactPath = `artifacts/${opts.arch}-${opts.os}/index.node`;
+  let artifactDir = `./artifacts/${opts.arch}-${opts.os}`;
+  $(`mkdir -p ${artifactDir}`);
+  let artifactPath = `${artifactDir}/index.node`;
   $(`cp -f "${outPath}" "${artifactPath}"`);
   $(`file "${artifactPath}"`);
   switch (opts.os) {
@@ -149,6 +155,11 @@ function main(args) {
       $(`otool -L "${artifactPath}"`);
       break;
   }
+
+  header("Testing generated bindings");
+  process.env.VALET_BINDINGS_PATH = artifactPath;
+  $(`npm t`);
+
   info(`All done!`);
 }
 

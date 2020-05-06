@@ -34,4 +34,15 @@ function getArch() {
 }
 
 let folder = `${getArch()}-${getOS()}`;
-module.exports = require(`./artifacts/${folder}/index.node`);
+let bindingsPath = `./artifacts/${folder}/index.node`;
+let envKey = "VALET_BINDINGS_PATH";
+let envBindingsPath = process.env[envKey];
+if (envBindingsPath) {
+  console.log(
+    `valet: bindings path overriden by $${envKey}=${JSON.stringify(
+      envBindingsPath
+    )}`
+  );
+  bindingsPath = envBindingsPath;
+}
+module.exports = require(bindingsPath);

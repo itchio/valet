@@ -60,11 +60,6 @@ func ServerFree(cId C.int64_t) C.int {
 	return 0
 }
 
-//export NStringFree
-func NStringFree(ns C.NString) {
-	C.free(unsafe.Pointer(ns.value))
-}
-
 func nstring(n *C.NString) string {
 	return C.GoStringN(n.value, C.int(n.len))
 }

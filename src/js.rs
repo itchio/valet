@@ -28,6 +28,18 @@ impl FromNapi for String {
     }
 }
 
+impl FromNapi for JsValue {
+    fn from_napi(env: JsEnv, value: napi_value) -> JsResult<Self> {
+        Ok(JsValue { env, value })
+    }
+}
+
+impl FromNapi for napi_value {
+    fn from_napi(_env: JsEnv, value: napi_value) -> JsResult<Self> {
+        Ok(value)
+    }
+}
+
 pub trait ToNapi {
     fn to_napi(&self, env: JsEnv) -> JsResult<napi_value>;
 }
@@ -204,11 +216,11 @@ impl JsValue {
         .check()
     }
 
-    pub fn get_property<K: ToNapi>(&self, key: K) -> JsResult<napi_value> {
+    pub fn get_property<K: ToNapi, V: FromNapi>(&self, key: K) -> JsResult<V> {
         let mut value = ptr::null_mut();
         unsafe { napi_get_property(self.env.0, self.value, key.to_napi(self.env)?, &mut value) }
             .check()?;
-        Ok(value)
+        Ok(V::from_napi(self.env, value)?)
     }
 
     pub fn build_class<T, F>(self, t: T, f: F) -> JsResult<()>

@@ -19,8 +19,20 @@ unsafe fn ctor() {
 }
 
 #[derive(Debug)]
-struct State {
+struct TesterState {
     count: i64,
+}
+
+struct ServerState {
+    id: i64,
+}
+
+impl Drop for ServerState {
+    fn drop(&mut self) {
+        unsafe {
+            libbutler::ServerFree(self.id);
+        }
+    }
 }
 
 #[no_mangle]
@@ -39,7 +51,7 @@ unsafe extern "C" fn init(env: sys::napi_env, _exports: sys::napi_value) -> sys:
         })?;
 
         let tester = env.object()?;
-        let state = State { count: 0 };
+        let state = TesterState { count: 0 };
         tester.build_class(state, |cb| {
             cb.method_mut_1("set", |_env, this, newcount| {
                 this.count = newcount;
@@ -53,11 +65,12 @@ unsafe extern "C" fn init(env: sys::napi_env, _exports: sys::napi_value) -> sys:
         ret.set_property("tester", tester)?;
 
         ret.build_class((), |cb| {
-            cb.method_0("newServer", |env, _this, opts: JsObject| {
-                let db_path = "/home/amos/.config/itch/db/butler.db";
+            cb.method_1("newServer", |env, _this, opts: JsValue| {
+                let db_path: String = opts.get_property("dbPath")?;
+
                 let mut opts = libbutler::ServerOpts {
                     id: 0,
-                    db_path: libbutler::NString::new(db_path),
+                    db_path: libbutler::NString::new(&db_path),
                 };
                 let status = libbutler::ServerNew(&mut opts);
                 if !status.success() {
@@ -67,21 +80,7 @@ unsafe extern "C" fn init(env: sys::napi_env, _exports: sys::napi_value) -> sys:
                 let ret = env.object()?;
                 ret.set_property("id", opts.id)?;
 
-                struct ServerThis {
-                    id: i64,
-                };
-
-                impl Drop for ServerThis {
-                    fn drop(&mut self) {
-                        println!("ServerThis dropped, freeing server");
-                        // TODO: gate
-                        unsafe {
-                            libbutler::ServerFree(self.id);
-                        }
-                    }
-                }
-
-                let this = ServerThis { id: opts.id };
+                let this = ServerState { id: opts.id };
                 ret.build_class(this, |cb| {
                     cb.method_1("send", |_env, this, payload| {
                         let s: String = payload;
