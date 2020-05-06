@@ -21,9 +21,18 @@ impl Status {
 }
 
 #[repr(C)]
-pub struct NString {
+pub struct NString<'a> {
     pub value: *const c_char,
     pub len: usize,
+}
+
+impl<'a> NString<'a> {
+    fn new(s: &'a str) -> Self {
+        Self {
+            value: s.as_ptr() as *const c_char,
+            len: s.len(),
+        }
+    }
 }
 
 #[repr(C)]
