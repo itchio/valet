@@ -12,3 +12,4 @@ target
 *.dylib
 *.dll
 .gdb_history
+/tmp

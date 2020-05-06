@@ -4,7 +4,7 @@
   "description": "butler as a native Node.js addon",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "node test.js",
     "build": "node release/build.js"
   },
   "repository": {

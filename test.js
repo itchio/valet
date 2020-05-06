@@ -1,8 +1,8 @@
-const util = require("util");
+//@ts-check
+"use strict";
 
-// const valet = require("./artifacts/x86_64-windows/index.node");
-const valet = require("./artifacts/x86_64-linux/index.node");
-global.valet = valet;
+const util = require("util");
+const valet = require(".");
 
 main();
 
@@ -33,53 +33,49 @@ function dump(obj) {
 async function main() {
   console.log("===========================");
 
-  let s = valet.new_server();
+  let s = valet.newServer({
+    dbPath: "./tmp/butler.db",
+  });
   let id = 1;
 
-  console.log(`Looking for game...`);
+  let numberToQuadruple = 256;
+
+  console.log(`Doing test request...`);
   s.send(
     JSON.stringify({
       jsonrpc: "2.0",
       id,
-      method: "Fetch.Caves",
+      method: "Test.DoubleTwice",
       params: {
-        limit: 1,
-        filters: {
-          gameId: 447005,
-        },
+        number: numberToQuadruple,
       },
     })
   );
   id++;
 
-  let res = JSON.parse(s.recv());
-  logResponse(res);
-
-  let caveId = res.result.items[0].id;
-  console.log(`Launching cave ${caveId} in 2 seconds...`);
-
-  await new Promise((rs, rj) => setTimeout(rs, 2000));
-
-  s.send(
-    JSON.stringify({
-      jsonrpc: "2.0",
-      method: "Launch",
-      id,
-      params: {
-        caveId,
-        prereqsDir: "/home/amos/.config/itch/prereqs",
-      },
-    })
-  );
-  id++;
-
-  console.log("Now dumping responses...");
   while (true) {
-    let res = JSON.parse(s.recv());
-    logResponse(res);
+    let payload = JSON.parse(s.recv());
+    if (typeof payload.id !== "undefined" && payload.method) {
+      if (payload.method === "Test.Double") {
+        s.send(
+          JSON.stringify({
+            jsonrpc: "2.0",
+            id: payload.id,
+            result: {
+              number: payload.params.number * 2,
+            },
+          })
+        );
+      } else {
+        throw new Error(`Unknown client-side method: '${payload.method}'`);
+      }
+    }
+    logResponse(payload);
+
+    if (typeof payload.result !== "undefined") {
+      break;
+    }
   }
 
-  // setTimeout(() => {
-  //   console.log("Bye now!");
-  // }, 1000);
+  console.log(`Test went fine!`);
 }

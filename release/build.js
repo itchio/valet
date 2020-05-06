@@ -121,6 +121,59 @@ function main(args) {
   $(`rustup -V`);
 
   $(`rustup toolchain install ${archInfo.toolchain}`);
+
+  header("Compiling native module");
+  $(`cargo +${archInfo.toolchain} build --release`);
+
+  header("Gathering stats");
+  let outPath = `./target/release/${osInfo.libName}`;
+  let stats;
+  try {
+    stats = require("fs").statSync(outPath);
+  } catch (e) {
+    throw new Error(`Could not find built library: ${e.stack}`);
+  }
+  info(`Artifact is ${fileSize(stats.size)}`);
+  let artifactPath = `artifacts/${opts.arch}-${opts.os}/index.node`;
+  $(`cp -f "${outPath}" "${artifactPath}"`);
+  $(`file "${artifactPath}"`);
+  switch (opts.os) {
+    case "linux":
+      $(`ldd "${artifactPath}"`);
+      showGlibcVersion(artifactPath);
+      break;
+    case "windows":
+      $(`ldd "${artifactPath}"`);
+      break;
+    case "darwin":
+      $(`otool -L "${artifactPath}"`);
+      break;
+  }
+  info(`All done!`);
+}
+
+/**
+ * @param {number} b The size in bytes
+ * @returns {string} A human-readable size
+ */
+function fileSize(b) {
+  let KiB = 1024;
+  let MiB = 1024 * KiB;
+
+  if (b > MiB) {
+    return `${(b / MiB).toFixed(2)} MiB`;
+  } else if (b > KiB) {
+    return `${(b / KiB).toFixed(0)} KiB`;
+  } else {
+    return `${b} B`;
+  }
+}
+
+/**
+ * @param {string} line
+ */
+function info(line) {
+  console.log(blue(`💡 ${line}`));
 }
 
 /**
@@ -144,8 +197,9 @@ function debug() {
 }
 
 const colors = {
-  blue: "\x1b[1;34;40m",
+  green: "\x1b[1;32;40m",
   yellow: "\x1b[1;33;40m",
+  blue: "\x1b[1;34;40m",
   reset: "\x1b[0;0;0m",
 };
 
@@ -166,6 +220,14 @@ function blue(s) {
 }
 
 /**
+ * @param {string} s
+ * @return {string}
+ */
+function green(s) {
+  return `${colors.green}${s}${colors.reset}`;
+}
+
+/**
  * @param {string} cmd
  */
 function $(cmd) {
@@ -173,6 +235,19 @@ function $(cmd) {
   const cp = require("child_process");
   cp.execSync(cmd, {
     stdio: "inherit",
+  });
+}
+
+/**
+ * @param {string} cmd
+ * @returns {string} stdout
+ */
+function $$(cmd) {
+  console.log(yellow(`📜 ${cmd}`));
+  const cp = require("child_process");
+  return cp.execSync(cmd, {
+    stdio: ["inherit", "pipe", "inherit"],
+    encoding: "utf8",
   });
 }
 
@@ -190,6 +265,36 @@ function detectOS() {
     default:
       throw new Error(`Unsupported process.platform: ${process.platform}`);
   }
+}
+
+/**
+ * @param {string} path ELF executable to show GLIBC version for
+ */
+function showGlibcVersion(path) {
+  let glibcVersions = $$(`bash -c 'strings ${path} | grep ^GLIBC_'`)
+    .split("\n")
+    .map((x) => x.replace(/^GLIBC_/, "").trim())
+    .filter((x) => x != "")
+    .map((x) => {
+      let tokens = x.split(".").map((x) => parseInt(x, 10));
+      while (tokens.length < 3) {
+        tokens.push(0);
+      }
+      return tokens;
+    });
+  glibcVersions.sort((a, b) => {
+    let major = a[0] - b[0];
+    if (major != 0) {
+      return major;
+    }
+    let minor = a[1] - b[1];
+    if (minor != 0) {
+      return minor;
+    }
+    return a[2] - b[2];
+  });
+  let minGlibcVersion = glibcVersions[glibcVersions.length - 1];
+  info(`Minimum GLIBC version: ${minGlibcVersion.join(".")}`);
 }
 
 main(process.argv.slice(2));

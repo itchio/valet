@@ -53,7 +53,7 @@ unsafe extern "C" fn init(env: sys::napi_env, _exports: sys::napi_value) -> sys:
         ret.set_property("tester", tester)?;
 
         ret.build_class((), |cb| {
-            cb.method_0("new_server", |env, _this| {
+            cb.method_0("newServer", |env, _this| {
                 let db_path = "/home/amos/.config/itch/db/butler.db";
                 let mut opts = libbutler::ServerOpts {
                     id: 0,
