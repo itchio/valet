@@ -3,3 +3,19 @@
 [[package]]
 name = "libbutler"
 version = "0.1.0"
+dependencies = [
+ "napi",
+]
+
+[[package]]
+name = "napi"
+version = "0.1.0"
+dependencies = [
+ "nj-sys",
+]
+
+[[package]]
+name = "nj-sys"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "265486f44e56487f1fceb7f8637344f0a0c7764940ab0e8b52eb12f53a16b3d4"

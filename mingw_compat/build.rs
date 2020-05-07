@@ -5,6 +5,15 @@ use std::{
 };
 
 fn main() {
+    let target = env::var("TARGET").unwrap();
+    if !target.contains("gnu") {
+        eprintln!(
+            "mingw_compat requires a GNU toolchain, but target is {:?}",
+            target
+        );
+        std::process::exit(1);
+    }
+
     let out_path = PathBuf::from(env::var_os("OUT_DIR").unwrap());
     gen_mingw_compat(&out_path).unwrap();
 }

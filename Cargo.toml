@@ -11,8 +11,8 @@ debug = true
 crate-type = ["cdylib"]
 
 [dependencies]
-nj-sys = "1.0.0"
 libbutler = { path = "./libbutler" }
+napi = { path = "./napi" }
 
 [target.'cfg(windows)'.dependencies]
 mingw_compat = { path = "./mingw_compat" }

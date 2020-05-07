@@ -9,6 +9,9 @@ use std::{
     sync::{Arc, RwLock},
 };
 
+pub type JsRawValue = nj_sys::napi_value;
+pub type JsRawEnv = nj_sys::napi_env;
+
 pub trait FromNapi
 where
     Self: Sized,
@@ -171,7 +174,7 @@ impl fmt::Debug for JsError {
     }
 }
 
-type JsResult<T> = Result<T, JsError>;
+pub type JsResult<T> = Result<T, JsError>;
 
 pub trait Check {
     fn check(self) -> Result<(), JsError>;
@@ -190,7 +193,7 @@ impl Check for napi_status {
 #[derive(Clone, Copy, Debug)]
 pub struct JsValue {
     env: JsEnv,
-    value: napi_value,
+    pub value: napi_value,
 }
 
 pub trait ToJsValue {

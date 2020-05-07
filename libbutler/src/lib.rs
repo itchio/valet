@@ -1,3 +1,4 @@
+use napi::{JsRawValue, JsResult, ToNapi};
 use std::{os::raw::*, ptr};
 
 #[link(name = "butler", kind = "static")]
@@ -51,11 +52,11 @@ pub struct OwnedNString {
 }
 
 impl OwnedNString {
-    pub fn new(s: &str) -> Self {
+    pub fn new() -> Self {
         Self {
             inner: NString {
                 value: ptr::null(),
-                len: s.len(),
+                len: 0,
             },
         }
     }
@@ -76,6 +77,17 @@ impl AsMut<NString> for OwnedNString {
 impl Drop for OwnedNString {
     fn drop(&mut self) {
         self.inner.free()
+    }
+}
+
+impl ToNapi for OwnedNString {
+    fn to_napi(&self, env: napi::JsEnv) -> JsResult<JsRawValue> {
+        let s = unsafe {
+            String::from_raw_parts(self.inner.value as *mut u8, self.inner.len, self.inner.len)
+        };
+        let ret = env.string(&s);
+        std::mem::forget(s);
+        Ok(ret?.value)
     }
 }
 

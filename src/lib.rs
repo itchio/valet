@@ -1,7 +1,4 @@
-use nj_sys as sys;
-
-mod js;
-use js::*;
+use napi::*;
 use std::{error::Error, fmt, os::raw::c_char};
 
 #[derive(Debug)]
@@ -43,7 +40,7 @@ impl Drop for ServerState {
 }
 
 #[no_mangle]
-unsafe extern "C" fn init(env: sys::napi_env, _exports: sys::napi_value) -> sys::napi_value {
+unsafe extern "C" fn init(env: JsRawEnv, _exports: JsRawValue) -> JsRawValue {
     let env = JsEnv::new(env);
     env.throwable::<JsError>(&|| {
         let ret = env.object()?;
