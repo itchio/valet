@@ -1,6 +1,8 @@
 //@ts-check
 "use strict";
 
+const { statSync, mkdirSync, readFileSync, writeFileSync } = require("fs");
+
 /**
  * @typedef OsInfo
  * @type {{
@@ -133,18 +135,20 @@ function main(args) {
   let outPath = `./target/release/${osInfo.libName}`;
   let stats;
   try {
-    stats = require("fs").statSync(outPath);
+    stats = statSync(outPath);
   } catch (e) {
     throw new Error(`Could not find built library: ${e.stack}`);
   }
   info(`Artifact is ${fileSize(stats.size)}`);
   let artifactDir = `./artifacts/${opts.arch}-${opts.os}`;
-  $(`mkdir -p ${artifactDir}`);
+  mkdirSync(artifactDir, { recursive: true });
   let artifactPath = `${artifactDir}/index.node`;
-  $(`cp -f "${outPath}" "${artifactPath}"`);
-  $(`file "${artifactPath}"`);
+  let artifactContents = readFileSync(outPath, { encoding: null });
+  writeFileSync(artifactPath, artifactContents, { encoding: null });
+  info(`Copied artifact to "${artifactPath}"`);
   switch (opts.os) {
     case "linux":
+      $(`file "${artifactPath}"`);
       $(`ldd "${artifactPath}"`);
       showGlibcVersion(artifactPath);
       break;
@@ -152,6 +156,7 @@ function main(args) {
       $(`ldd "${artifactPath}"`);
       break;
     case "darwin":
+      $(`file "${artifactPath}"`);
       $(`otool -L "${artifactPath}"`);
       break;
   }
