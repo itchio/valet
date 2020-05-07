@@ -153,7 +153,6 @@ function main(args) {
       showGlibcVersion(artifactPath);
       break;
     case "windows":
-      $(`ldd "${artifactPath}"`);
       break;
     case "darwin":
       $(`file "${artifactPath}"`);
