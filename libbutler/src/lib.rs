@@ -1,4 +1,4 @@
-use napi::{JsRawValue, JsResult, ToNapi};
+use napi::{JsEnv, JsRawValue, JsResult, ToNapi};
 use std::{os::raw::*, ptr};
 
 #[link(name = "butler", kind = "static")]
@@ -81,7 +81,7 @@ impl Drop for OwnedNString {
 }
 
 impl ToNapi for OwnedNString {
-    fn to_napi(&self, env: napi::JsEnv) -> JsResult<JsRawValue> {
+    fn to_napi(&self, env: &JsEnv) -> JsResult<JsRawValue> {
         let s = unsafe {
             String::from_raw_parts(self.inner.value as *mut u8, self.inner.len, self.inner.len)
         };

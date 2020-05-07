@@ -115,7 +115,7 @@ unsafe extern "C" fn init(env: JsRawEnv, _exports: JsRawValue) -> JsRawValue {
             Ok(())
         })?;
 
-        Ok(ret.to_napi(env)?)
+        Ok(ret.to_napi(&env)?)
     })
 }
 
