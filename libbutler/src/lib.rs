@@ -8,6 +8,11 @@ extern "C" {
     pub fn ServerFree(id: i64);
 }
 
+#[cfg(target_os = "macos")]
+#[link(name = "Cocoa", kind = "framework")]
+#[link(name = "Security", kind = "framework")]
+extern "C" {}
+
 #[repr(transparent)]
 #[derive(Clone, Copy)]
 pub struct Status(c_int);
