@@ -13,7 +13,6 @@ crate-type = ["cdylib"]
 [dependencies]
 nj-sys = "1.0.0"
 libbutler = { path = "./libbutler" }
-thiserror = "1.0.15"
 
 [target.'cfg(windows)'.dependencies]
 mingw_compat = { path = "./mingw_compat" }

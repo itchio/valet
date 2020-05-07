@@ -2,13 +2,20 @@ use nj_sys as sys;
 
 mod js;
 use js::*;
-use std::os::raw::c_char;
+use std::{error::Error, fmt, os::raw::c_char};
 
-#[derive(thiserror::Error, Debug)]
+#[derive(Debug)]
 enum ValetError {
-    #[error("libbutler error")]
     Butler,
 }
+
+impl fmt::Display for ValetError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt::Debug::fmt(self, f)
+    }
+}
+
+impl Error for ValetError {}
 
 #[no_mangle]
 unsafe fn ctor() {

@@ -254,26 +254,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "db3c46be180f1af9673ebb27bc1235396f61ef6965b3fe0dbb2e624deb604f0e"
 
 [[package]]
-name = "thiserror"
-version = "1.0.16"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d12a1dae4add0f0d568eebc7bf142f145ba1aa2544cafb195c76f0f409091b60"
-dependencies = [
- "thiserror-impl",
-]
-
-[[package]]
-name = "thiserror-impl"
-version = "1.0.16"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3f34e0c1caaa462fd840ec6b768946ea1e7842620d94fe29d5b847138f521269"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn",
-]
-
-[[package]]
 name = "unicode-xid"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -287,5 +267,4 @@ dependencies = [
  "mingw_compat",
  "napi_stub",
  "nj-sys",
- "thiserror",
 ]
