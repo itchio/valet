@@ -22,5 +22,6 @@
   "homepage": "https://github.com/itchio/valet#readme",
   "devDependencies": {
     "@types/node": "^13.13.4"
-  }
+  },
+  "dependencies": {}
 }
