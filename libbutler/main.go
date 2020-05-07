@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"unsafe"
 
@@ -60,24 +59,20 @@ func ServerFree(cId C.int64_t) C.int {
 	return 0
 }
 
+//export NStringFree
+func NStringFree(n *C.NString) {
+	if n == nil {
+		return
+	}
+
+	if n.value != nil {
+		C.free(unsafe.Pointer(n.value))
+		n.value = nil
+	}
+}
+
 func nstring(n *C.NString) string {
 	return C.GoStringN(n.value, C.int(n.len))
-}
-
-func doPanic() {
-	defer func() {
-		if r := recover(); r != nil {
-			fmt.Println("Recovered: ", r)
-		}
-	}()
-
-	panic("panic from go")
-}
-
-func must(err error) {
-	if err != nil {
-		panic(fmt.Sprintf("%+v", err))
-	}
 }
 
 func main() {

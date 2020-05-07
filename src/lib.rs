@@ -72,6 +72,7 @@ unsafe extern "C" fn init(env: sys::napi_env, _exports: sys::napi_value) -> sys:
         ret.set_property("tester", tester)?;
 
         ret.build_class((), |cb| {
+            #[allow(unused_variables)]
             cb.method_1("newServer", |env, _this, opts: JsValue| {
                 let db_path: String = opts.get_property("dbPath")?;
 
@@ -89,7 +90,7 @@ unsafe extern "C" fn init(env: sys::napi_env, _exports: sys::napi_value) -> sys:
 
                 let this = ServerState { id: opts.id };
                 ret.build_class(this, |cb| {
-                    cb.method_1("send", |_env, this, payload| {
+                    cb.method_1("send", |env, this, payload| {
                         let s: String = payload;
                         libbutler::ServerSend(
                             this.id,
@@ -98,17 +99,14 @@ unsafe extern "C" fn init(env: sys::napi_env, _exports: sys::napi_value) -> sys:
                                 len: s.len(),
                             },
                         );
+                        drop(s);
                         Ok(())
                     })?;
 
-                    cb.method_0("recv", |_env, this| {
-                        let mut ns = libbutler::NString {
-                            value: std::ptr::null_mut(),
-                            len: 0,
-                        };
-                        libbutler::ServerRecv(this.id, &mut ns);
-                        let s = String::from_raw_parts(ns.value as *mut u8, ns.len, ns.len);
-                        Ok(s)
+                    cb.method_0("recv", |env, this| {
+                        let mut ns = libbutler::OwnedNString::new();
+                        libbutler::ServerRecv(this.id, ns.as_mut());
+                        Ok(ns)
                     })?;
 
                     Ok(())
