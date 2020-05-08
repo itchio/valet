@@ -64,6 +64,7 @@ function main(args) {
    * @type {{
    *   os?: string;
    *   arch?: string;
+   *   "test-runtime"?: string;
    * }}
    */
   let opts = {};
@@ -117,6 +118,12 @@ function main(args) {
   } else {
     console.log(`Using specified arch ${yellow(opts.arch)}`);
   }
+
+  let testRuntime = opts["test-runtime"] || "electron";
+  if (["node", "electron"].indexOf(testRuntime) === -1) {
+    throw new Error(`Unrecognized test runtime ${yellow(testRuntime)}`);
+  }
+  console.log(`Will use test runtime ${yellow(testRuntime)}`);
 
   let archInfo = osInfo.architectures[opts.arch];
   debug({ archInfo });
@@ -180,7 +187,34 @@ function main(args) {
 
   header("Testing generated bindings");
   process.env.VALET_BINDINGS_PATH = artifactPath;
-  $(`npm t`);
+
+  if (testRuntime === "electron") {
+    mkdirSync("test-rig", { recursive: true });
+    process.chdir("test-rig");
+    try {
+      $(`npm init -y`);
+      let old_npm_config_arch = process.env.npm_config_arch;
+      if (opts.arch === "i686") {
+        process.env.npm_config_arch = `ia32`;
+      } else if (opts.arch === "x86_64") {
+        process.env.npm_config_arch = `x64`;
+      }
+      console.log(
+        `Set npm_config_arch to ${yellow(process.env.npm_config_arch)}`
+      );
+      $(`npm i --no-save electron`);
+      process.env.npm_config_arch = old_npm_config_arch;
+      $(`"node_modules/.bin/electron" ../test.js`);
+    } catch (e) {
+      throw e;
+    } finally {
+      process.chdir("..");
+    }
+  } else if (testRuntime === "node") {
+    $(`npm t`);
+  } else {
+    throw new Error(`Unknown test runtime: '${testRuntime}'`);
+  }
 
   info(`All done!`);
 }
