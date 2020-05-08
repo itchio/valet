@@ -6,7 +6,7 @@ build:linux:
   stage: build
   tags: ["docker-capsule-64"]
   script:
-    - npm run build -- --os linux --arch x86_64 --test-runtime electron
+    - xvfb-run -- npm run build -- --os linux --arch x86_64 --test-runtime electron
   artifacts:
     expire_in: 1 week
     paths: ["artifacts"]
@@ -15,7 +15,7 @@ build:darwin:
   stage: build
   tags: ["darwin"]
   script:
-    - npm run build -- --os darwin --arch x86_6 --test-runtime electron4
+    - npm run build -- --os darwin --arch x86_64 --test-runtime electron
   artifacts:
     expire_in: 1 week
     paths: ["artifacts"]

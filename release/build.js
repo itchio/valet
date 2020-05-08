@@ -202,7 +202,7 @@ function main(args) {
       console.log(
         `Set npm_config_arch to ${yellow(process.env.npm_config_arch)}`
       );
-      $(`npm i --no-save electron`);
+      $(`npm i --no-save --no-audit electron`);
       process.env.npm_config_arch = old_npm_config_arch;
       $(`"node_modules/.bin/electron" ../test.js`);
     } catch (e) {
