@@ -10,6 +10,9 @@ fn golang() -> Result<(), Box<dyn Error>> {
 
     let mut cmd = Command::new("go");
     cmd.current_dir(gopkg_path);
+    mingw_setup::install(|k, v| {
+        cmd.env(k, v);
+    });
     cmd.arg("build");
     cmd.arg("-v");
     cmd.arg("-ldflags=-s -w");

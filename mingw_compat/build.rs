@@ -5,14 +5,18 @@ use std::{
 };
 
 fn main() {
-    let target = env::var("TARGET").unwrap();
-    if !target.contains("gnu") {
+    let env_target = env::var("TARGET").unwrap();
+    if !env_target.contains("gnu") {
         eprintln!(
             "mingw_compat requires a GNU toolchain, but target is {:?}",
-            target
+            env_target
         );
         std::process::exit(1);
     }
+
+    mingw_setup::install(|k, v| {
+        env::set_var(k, v);
+    });
 
     let out_path = PathBuf::from(env::var_os("OUT_DIR").unwrap());
     gen_mingw_compat(&out_path).unwrap();

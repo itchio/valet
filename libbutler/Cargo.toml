@@ -6,3 +6,6 @@ edition = "2018"
 
 [dependencies]
 napi = { path = "../napi" }
+
+[build-dependencies]
+mingw_setup = { path = "../mingw_setup" }

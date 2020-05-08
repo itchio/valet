@@ -10,6 +10,7 @@ const { statSync, mkdirSync, readFileSync, writeFileSync } = require("fs");
  *   architectures: {
  *     [key: string]: {
  *       toolchain: string,
+ *       prependPath?: string,
  *     }
  *   }
  * }}
@@ -119,19 +120,6 @@ function main(args) {
   debug({ archInfo });
   if (!archInfo) {
     throw new Error(`Unsupported arch '${opts.arch}' for os '${opts.os}'`);
-  }
-
-  if (opts.os === "windows") {
-    header("Windows-specific configuration");
-    if (opts.arch === "i686") {
-      info("Prepending 32-bit mingw path to $PATH");
-      process.env.PATH = `/mingw32/bin:${process.env.PATH}`;
-    } else if (opts.arch === "x86_64") {
-      info("Prepending 64-bit mingw path to $PATH");
-      process.env.PATH = `/mingw64/bin:${process.env.PATH}`;
-    } else {
-      console.log(yellow(`Warning: architecture ${opts.arch} not recognized`));
-    }
   }
 
   header("Showing tool versions");
