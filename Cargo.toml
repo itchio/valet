@@ -15,5 +15,4 @@ libbutler = { path = "./libbutler" }
 napi = { path = "./napi" }
 
 [target.'cfg(windows)'.dependencies]
-mingw_compat = { path = "./mingw_compat" }
 napi_stub = { path = "./napi_stub" }

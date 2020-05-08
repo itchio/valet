@@ -60,14 +60,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "mingw_compat"
-version = "0.1.0"
-dependencies = [
- "cc",
- "mingw_setup",
-]
-
-[[package]]
 name = "mingw_setup"
 version = "0.1.0"
 
@@ -280,7 +272,6 @@ name = "valet"
 version = "0.1.0"
 dependencies = [
  "libbutler",
- "mingw_compat",
  "napi",
  "napi_stub",
 ]

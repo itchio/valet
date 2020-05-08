@@ -25,9 +25,11 @@ const OS_INFOS = {
     architectures: {
       i686: {
         toolchain: "stable-i686-pc-windows-gnu",
+        prependPath: "/mingw32/bin",
       },
       x86_64: {
         toolchain: "stable-x86_64-pc-windows-gnu",
+        prependPath: "/mingw64/bin",
       },
     },
   },
@@ -120,6 +122,21 @@ function main(args) {
   debug({ archInfo });
   if (!archInfo) {
     throw new Error(`Unsupported arch '${opts.arch}' for os '${opts.os}'`);
+  }
+
+  if (archInfo.prependPath) {
+    if (opts.os === "windows") {
+      let prependPath = $$(`cygpath -w ${archInfo.prependPath}`).trim();
+      console.log(
+        `Prepending ${yellow(archInfo.prependPath)} (aka ${yellow(
+          prependPath
+        )}) to $PATH`
+      );
+      process.env.PATH = `${prependPath};${process.env.PATH}`;
+    } else {
+      console.log(`Prepending ${yellow(archInfo.prependPath)} to $PATH`);
+      process.env.PATH = `${archInfo.prependPath}:${process.env.PATH}`;
+    }
   }
 
   header("Showing tool versions");

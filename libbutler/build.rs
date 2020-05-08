@@ -1,6 +1,10 @@
 use std::{env, error::Error, path::PathBuf, process::Command, process::Stdio};
 
 fn main() {
+    mingw_setup::install(|k, v| {
+        env::set_var(k, v);
+    });
+
     golang().unwrap();
 }
 
@@ -10,9 +14,6 @@ fn golang() -> Result<(), Box<dyn Error>> {
 
     let mut cmd = Command::new("go");
     cmd.current_dir(gopkg_path);
-    mingw_setup::install(|k, v| {
-        cmd.env(k, v);
-    });
     cmd.arg("build");
     cmd.arg("-v");
     cmd.arg("-ldflags=-s -w");
