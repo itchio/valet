@@ -29,3 +29,8 @@ build:windows:
   artifacts:
     expire_in: 1 week
     paths: ["artifacts"]
+
+deploy:
+  stage: deploy
+  script:
+    - npm run deploy

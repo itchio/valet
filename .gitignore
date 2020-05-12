@@ -12,5 +12,7 @@ target
 *.so
 *.dylib
 *.dll
+*.zip
 .gdb_history
 /tmp
+/release-tools
