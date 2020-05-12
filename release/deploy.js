@@ -73,6 +73,12 @@ function main() {
     );
   }
 
+  try {
+    $bash(`${ghr} delete --tag "${tag}"`);
+    info(`Probably replacing release`);
+  } catch (e) {
+    info(`Probably not replacing release`);
+  }
   $bash(`${ghr} release --tag "${tag}"`);
 
   header("Uploading...");
