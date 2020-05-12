@@ -1,17 +1,14 @@
 //@ts-check
 "use strict";
 
+const { $, $bash, header, yellow, green, blue, info } = require("./common");
 const {
-  $,
-  $bash,
-  header,
-  yellow,
-  green,
-  blue,
-  info,
-  detectOS,
-} = require("./common");
-const { readdirSync, readFileSync, mkdirSync } = require("fs");
+  statSync,
+  readdirSync,
+  readFileSync,
+  mkdirSync,
+  rmdirSync,
+} = require("fs");
 
 function main() {
   try {
@@ -28,11 +25,8 @@ function main() {
     );
   }
 
-  header("Showing tool versions");
-  $(`node --version`);
-  $(`node --version`);
-
   header("Gathering information");
+  $(`node --version`);
 
   let tag = process.env.CI_COMMIT_TAG;
   if (!tag) {
@@ -48,6 +42,7 @@ function main() {
   let [, major, minor, patch] = matches;
   info(`Releasing version ${yellow(`${major}.${minor}.${patch}`)}`);
 
+  rmdirSync("./artifacts/tmp.zip", { recursive: true });
   const targets = readdirSync("./artifacts");
   info(`Will upload targets: ${targets.map(yellow).join(", ")}`);
 
@@ -57,9 +52,44 @@ function main() {
   let toolRepo = `https://github.com/github-release/github-release`;
   let toolTag = `v0.8.1`;
   let toolUrl = `${toolRepo}/releases/download/${toolTag}/linux-amd64-github-release.bz2`;
-  $bash(`curl -L "${toolUrl}" | bunzip2 > ./release-tools/github-release`);
-  $bash(`chmod +x ./release-tools/github-release`);
-  $bash(`release-tools/github-release -v`);
+  let ghr = `./release-tools/github-release`;
+  try {
+    statSync(ghr);
+    info(`Using existing ${yellow(ghr)}...`);
+  } catch (e) {
+    info(`Downloading ${yellow(ghr)}`);
+    $bash(`curl --location "${toolUrl}" | bunzip2 > ${ghr}`);
+  }
+  $bash(`chmod +x ${ghr}`);
+  $bash(`${ghr} --version`);
+
+  process.env.GITHUB_USER = "itchio";
+  process.env.GITHUB_REPO = "valet";
+  if (!process.env.GITHUB_TOKEN) {
+    throw new Error(
+      `${yellow(
+        "$GITHUB_TOKEN"
+      )} is unset, are you running this script outside of CI?`
+    );
+  }
+
+  $bash(`${ghr} release --tag "${tag}"`);
+
+  header("Uploading...");
+  for (const target of targets) {
+    let label = `Native addon for ${target}`;
+    $bash(
+      `(cd ./artifacts; zip --display-dots --recurse-paths ./tmp.zip ./${target})`
+    );
+    // note: github-release says it can upload from stdin, but it can't
+    $bash(
+      [
+        `${ghr} upload --tag "${tag}" --file "./artifacts/tmp.zip" --replace`,
+        `--label "${label}" --name "${target}.zip"`,
+      ].join(" ")
+    );
+    rmdirSync("./artifacts/tmp.zip", { recursive: true });
+  }
 }
 
 main();
