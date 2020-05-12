@@ -17,6 +17,7 @@ main()
   .catch((e) => console.warn(e.stack))
   .then(() => {
     try {
+      // @ts-ignore
       require("electron").app.exit(0);
     } catch (e) {
       console.warn(e);
