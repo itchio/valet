@@ -212,7 +212,10 @@ function main(args) {
 
   if (opts.test) {
     header("Testing generated bindings");
-    process.env.VALET_BINDINGS_PATH = artifactPath;
+    info("Compiling TypeScript support code...");
+    $(`npm run ts`);
+
+    process.env.VALET_BINDINGS_PATH = `../${artifactPath}`;
 
     if (testRuntime === "electron") {
       mkdirSync("test-rig", { recursive: true });
