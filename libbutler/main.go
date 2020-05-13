@@ -21,9 +21,9 @@ import (
 //   Buffer *address;
 // } InitOpts;
 //
-// typedef void (*recv_callback)(void *userdata, Buffer *payload);
+// typedef void (*recv_callback)(void *userdata, Buffer payload);
 //
-// static void call_recv_callback(recv_callback cb, void *userdata, Buffer *payload) {
+// static void call_recv_callback(recv_callback cb, void *userdata, Buffer payload) {
 //   cb(userdata, payload);
 // }
 import "C"
@@ -64,8 +64,7 @@ func butler_conn_recv(cId C.int64_t, cb C.recv_callback, userdata unsafe.Pointer
 			value: (*C.uint8_t)(unsafe.Pointer(C.CBytes(payload))),
 			len:   C.size_t(len(payload)),
 		}
-		C.call_recv_callback(cb, userdata, &cPayload)
-		C.free(unsafe.Pointer(cPayload.value))
+		C.call_recv_callback(cb, userdata, cPayload)
 	}()
 }
 
@@ -73,6 +72,14 @@ func butler_conn_recv(cId C.int64_t, cb C.recv_callback, userdata unsafe.Pointer
 func butler_conn_close(cId C.int64_t) C.int {
 	server.ConnClose(int64(cId))
 	return 0
+}
+
+//export butler_buffer_free
+func butler_buffer_free(b *C.Buffer) {
+	if unsafe.Pointer(b.value) != nil {
+		C.free(unsafe.Pointer(b.value))
+		b.value = nil
+	}
 }
 
 func (b *C.Buffer) ToString() string {

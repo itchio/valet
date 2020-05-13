@@ -1,14 +1,24 @@
-use std::{fmt, os::raw::*};
+use std::{
+    fmt,
+    ops::{Deref, DerefMut},
+    os::raw::*,
+};
 
-type ButlerRecvCallback = unsafe extern "C" fn(*const c_void, &Buffer);
+type ButlerRecvCallback = unsafe extern "C" fn(*const c_void, OwnedBuffer);
 
 #[link(name = "butler", kind = "static")]
 extern "C" {
+    // static
     fn butler_initialize(opts: &InitOpts) -> Status;
+
+    // conn
     fn butler_conn_new() -> i64;
     fn butler_conn_send(id: i64, payload: &Buffer) -> Status;
     fn butler_conn_recv(id: i64, cb: ButlerRecvCallback, user_data: *const c_void);
     fn butler_conn_close(id: i64) -> Status;
+
+    // buffer
+    fn butler_buffer_free(buffer: &mut Buffer);
 }
 
 #[cfg(target_os = "macos")]
@@ -119,7 +129,7 @@ impl Conn {
     /// successfully received, merely that a receive operation was queued.
     pub fn recv<F>(&self, f: F) -> Result<(), Error>
     where
-        F: FnMut(&Buffer),
+        F: FnOnce(OwnedBuffer),
     {
         let id = self.id.ok_or(Error::UseOfClosedConnection)?;
         let closure = Box::into_raw(Box::new(f));
@@ -136,10 +146,32 @@ impl Conn {
     }
 }
 
-unsafe extern "C" fn call_recv_callback<F>(user_data: *const c_void, payload: &Buffer)
+unsafe extern "C" fn call_recv_callback<F>(user_data: *const c_void, payload: OwnedBuffer)
 where
-    F: FnMut(&Buffer),
+    F: FnOnce(OwnedBuffer),
 {
-    let mut boxed = Box::from_raw(user_data as *mut F);
+    let boxed = Box::from_raw(user_data as *mut F);
     boxed(payload)
+}
+
+#[repr(transparent)]
+pub struct OwnedBuffer(Buffer);
+
+impl Deref for OwnedBuffer {
+    type Target = Buffer;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl DerefMut for OwnedBuffer {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+impl Drop for OwnedBuffer {
+    fn drop(&mut self) {
+        unsafe { butler_buffer_free(self) }
+    }
 }

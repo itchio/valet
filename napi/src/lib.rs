@@ -10,6 +10,8 @@ use std::{
 };
 
 pub type JsRawValue = nj_sys::napi_value;
+pub type JsRawDeferred = nj_sys::napi_deferred;
+pub type JsRawThreadsafeFunction = nj_sys::napi_threadsafe_function;
 pub type JsRawEnv = nj_sys::napi_env;
 
 pub trait FromNapi
@@ -403,6 +405,37 @@ impl fmt::Debug for JsValueType {
     }
 }
 
+pub struct JsDeferred {
+    deferred: JsRawDeferred,
+    ts: JsRawThreadsafeFunction,
+}
+
+impl JsDeferred {
+    pub fn resolve<V>(&self, resolution: V) -> JsResult<()>
+    where
+        V: ToNapi + 'static,
+    {
+        let data = DeferredResult {
+            deferred: self.deferred,
+            resolution: DeferredResolution::Resolve(Box::new(resolution)),
+        };
+        let data = Box::into_raw(Box::new(data));
+        unsafe { napi_call_threadsafe_function(self.ts, data as *mut c_void, 1) }.check()
+    }
+
+    pub fn reject<V>(&self, resolution: V) -> JsResult<()>
+    where
+        V: ToNapi + 'static,
+    {
+        let data = DeferredResult {
+            deferred: self.deferred,
+            resolution: DeferredResolution::Reject(Box::new(resolution)),
+        };
+        let data = Box::into_raw(Box::new(data));
+        unsafe { napi_call_threadsafe_function(self.ts, data as *mut c_void, 1) }.check()
+    }
+}
+
 pub struct JMethodInfo<T, D> {
     pub this: Arc<RwLock<T>>,
     pub args: Vec<napi_value>,
@@ -413,6 +446,34 @@ pub struct JMethodInfo<T, D> {
 impl JsEnv {
     pub fn new(e: napi_env) -> Self {
         e.into()
+    }
+
+    pub fn deferred(&self) -> JsResult<(JsDeferred, JsValue)> {
+        let mut deferred = ptr::null_mut();
+        let mut promise = ptr::null_mut();
+        unsafe { napi_create_promise(self.0, &mut deferred, &mut promise) }.check()?;
+        let mut ts = ptr::null_mut();
+        let async_resource_name = "promise ts".to_napi(self)?;
+        let context = ptr::null_mut();
+        unsafe {
+            napi_create_threadsafe_function(
+                self.0,
+                ptr::null_mut(),
+                ptr::null_mut(),
+                async_resource_name,
+                0,
+                2,
+                ptr::null_mut(),
+                None,
+                context,
+                Some(call_js_cb),
+                &mut ts,
+            )
+        }
+        .check()?;
+        let deferred = JsDeferred { deferred, ts };
+        let promise = promise.to_js_value(self);
+        Ok((deferred, promise))
     }
 
     pub fn string(&self, s: &str) -> JsResult<JsValue> {
@@ -700,4 +761,40 @@ where
         let ret = ret.to_napi(&env);
         ret
     })
+}
+
+enum DeferredResolution {
+    Resolve(Box<dyn ToNapi>),
+    Reject(Box<dyn ToNapi>),
+}
+
+struct DeferredResult {
+    deferred: JsRawDeferred,
+    resolution: DeferredResolution,
+}
+
+unsafe extern "C" fn call_js_cb(
+    env: JsRawEnv,
+    _callback: JsRawValue,
+    _context: *mut c_void,
+    data: *mut c_void,
+) {
+    let env: JsEnv = env.into();
+    let data = data as *mut DeferredResult;
+    let data = Box::from_raw(data);
+
+    let env = &env;
+    env.throwable(&move || {
+        match &data.resolution {
+            DeferredResolution::Resolve(v) => {
+                napi_resolve_deferred(env.0, data.deferred, v.to_napi(&env)?)
+            }
+            DeferredResolution::Reject(v) => {
+                napi_reject_deferred(env.0, data.deferred, v.to_napi(&env)?)
+            }
+        }
+        .check()?;
+
+        ().to_napi(&env)
+    });
 }
