@@ -73,10 +73,16 @@ function main(args) {
    * @type {{
    *   os?: string;
    *   arch?: string;
+   *   test?: boolean;
    *   "test-runtime"?: string;
    * }}
    */
   let opts = {};
+  if (process.env.CI) {
+    info(`In CI, enabling testing`);
+    opts.test = true;
+  }
+
   let positional = [];
   for (let i = 0; i < args.length; i++) {
     let arg = args[i];
@@ -89,10 +95,12 @@ function main(args) {
         continue;
       }
 
-      i++;
-      let v = args[i];
       if (k === "os" || k === "arch" || k === "test-runtime") {
+        i++;
+        let v = args[i];
         opts[k] = v;
+      } else if (k == "test") {
+        opts.test = true;
       } else {
         throw new Error(`Unknown long option: ${yellow("--" + k)}`);
       }
@@ -198,37 +206,41 @@ function main(args) {
       break;
   }
 
-  header("Testing generated bindings");
-  process.env.VALET_BINDINGS_PATH = artifactPath;
+  if (opts.test) {
+    header("Testing generated bindings");
+    process.env.VALET_BINDINGS_PATH = artifactPath;
 
-  if (testRuntime === "electron") {
-    mkdirSync("test-rig", { recursive: true });
-    process.chdir("test-rig");
-    try {
-      $(`npm init -y`);
-      let old_npm_config_arch = process.env.npm_config_arch;
-      if (opts.arch === "i686") {
-        process.env.npm_config_arch = `ia32`;
-      } else if (opts.arch === "x86_64") {
-        process.env.npm_config_arch = `x64`;
-      } else {
-        throw new Error(`Unsupported architecture: ${yellow(opts.arch)}`);
+    if (testRuntime === "electron") {
+      mkdirSync("test-rig", { recursive: true });
+      process.chdir("test-rig");
+      try {
+        $(`npm init -y`);
+        let old_npm_config_arch = process.env.npm_config_arch;
+        if (opts.arch === "i686") {
+          process.env.npm_config_arch = `ia32`;
+        } else if (opts.arch === "x86_64") {
+          process.env.npm_config_arch = `x64`;
+        } else {
+          throw new Error(`Unsupported architecture: ${yellow(opts.arch)}`);
+        }
+        console.log(
+          `Set npm_config_arch to ${yellow(process.env.npm_config_arch)}`
+        );
+        $(`npm i --no-save --no-audit electron`);
+        process.env.npm_config_arch = old_npm_config_arch;
+        $(`"node_modules/.bin/electron" ../test.js`);
+      } catch (e) {
+        throw e;
+      } finally {
+        process.chdir("..");
       }
-      console.log(
-        `Set npm_config_arch to ${yellow(process.env.npm_config_arch)}`
-      );
-      $(`npm i --no-save --no-audit electron`);
-      process.env.npm_config_arch = old_npm_config_arch;
-      $(`"node_modules/.bin/electron" ../test.js`);
-    } catch (e) {
-      throw e;
-    } finally {
-      process.chdir("..");
+    } else if (testRuntime === "node") {
+      $(`npm t`);
+    } else {
+      throw new Error(`Unknown test runtime: '${testRuntime}'`);
     }
-  } else if (testRuntime === "node") {
-    $(`npm t`);
   } else {
-    throw new Error(`Unknown test runtime: '${testRuntime}'`);
+    info(`Skipping testing (enable with ${yellow("--test")})`);
   }
 
   info(`All done!`);

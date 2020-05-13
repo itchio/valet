@@ -2,6 +2,7 @@
 "use strict";
 
 const { $, $bash, header, yellow, green, blue, info } = require("./common");
+const { generateTypings } = require("./generate-typings");
 const {
   statSync,
   readdirSync,
@@ -46,7 +47,14 @@ function main() {
   const targets = readdirSync("./artifacts");
   info(`Will upload targets: ${targets.map(yellow).join(", ")}`);
 
-  header("Downloading tool");
+  generateTypings();
+
+  if (process.env.DRY_RUN) {
+    info("Dry run, bailing out now");
+    return;
+  }
+
+  header("Uploading native addons...");
   mkdirSync("./release-tools", { recursive: true });
 
   let toolRepo = `https://github.com/github-release/github-release`;
@@ -81,7 +89,6 @@ function main() {
   }
   $bash(`${ghr} release --tag "${tag}"`);
 
-  header("Uploading...");
   for (const target of targets) {
     let label = `Native addon for ${target}`;
     $bash(

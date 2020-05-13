@@ -4,8 +4,13 @@
 name = "libbutler"
 version = "0.1.0"
 dependencies = [
+ "mingw_setup",
  "napi",
 ]
+
+[[package]]
+name = "mingw_setup"
+version = "0.1.0"
 
 [[package]]
 name = "napi"

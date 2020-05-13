@@ -2,12 +2,12 @@ package server
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"path/filepath"
 	"sync"
 
 	"crawshaw.io/sqlite/sqlitex"
+	"github.com/itchio/butler/butlerd"
 	"github.com/itchio/butler/butlerd/horror"
 	"github.com/itchio/butler/butlerd/jsonrpc2"
 	"github.com/itchio/butler/cmd/daemon"
@@ -19,35 +19,52 @@ import (
 )
 
 type Server struct {
+	ctx    context.Context
+	router *butlerd.Router
+}
+
+// singleton
+var globalServer *Server
+
+type Conn struct {
 	transport *directTransport
-	conn      jsonrpc2.Conn
+	rpcConn   jsonrpc2.Conn
 }
 
-type NewOpts struct {
-	DBPath string
+type InitOpts struct {
+	DBPath    string
+	UserAgent string
+	Address   string
 }
 
-type ServerID = int64
+type ConnID = int64
 
-type serverMap struct {
+type connMap struct {
 	lock *sync.RWMutex
-	m    map[ServerID]*Server
+	m    map[ConnID]*Conn
 	rand idMaker
 }
 
-var servers = serverMap{
+var conns = connMap{
 	lock: new(sync.RWMutex),
-	m:    make(map[ServerID]*Server),
+	m:    make(map[ConnID]*Conn),
 	rand: newIdMaker(),
 }
 
-func New(opts NewOpts) (ServerID, error) {
+func Initialize(opts InitOpts) error {
 	if opts.DBPath == "" {
-		return 0, errors.New("DBPath cannot be nil")
+		return errors.New("DBPath cannot be nil")
 	}
 
 	mansionCtx := mansion.NewContext(nil)
-	mansionCtx.SetAddress("https://itch.io")
+	if opts.Address == "" {
+		mansionCtx.SetAddress(opts.Address)
+	} else {
+		mansionCtx.SetAddress("https://itch.io")
+	}
+	if opts.UserAgent != "" {
+		mansionCtx.UserAgentAddition = opts.UserAgent
+	}
 	mansionCtx.DBPath = opts.DBPath
 
 	err := os.MkdirAll(filepath.Dir(mansionCtx.DBPath), 0o755)
@@ -85,46 +102,60 @@ func New(opts NewOpts) (ServerID, error) {
 	// TODO: don't use mansionCtx when building router
 	router := daemon.GetRouter(dbPool, mansionCtx)
 
-	ctx := context.Background()
+	globalServer = &Server{
+		ctx:    context.Background(),
+		router: router,
+	}
+	return nil
+}
+
+func EnsureGlobalServer() *Server {
+	if globalServer == nil {
+		panic("global server not running - initialize() must be called first!")
+	}
+	return globalServer
+}
+
+func ConnNew() ConnID {
+	s := EnsureGlobalServer()
 
 	transport := newDirectTransport()
-	conn := jsonrpc2.NewConn(ctx, transport, router)
+	rpcConn := jsonrpc2.NewConn(s.ctx, transport, s.router)
 
-	s := &Server{
-		conn:      conn,
+	conn := &Conn{
 		transport: transport,
+		rpcConn:   rpcConn,
 	}
-	servers.lock.Lock()
-	id := servers.rand.next()
-	servers.m[id] = s
-	servers.lock.Unlock()
-	return id, nil
+
+	conns.lock.Lock()
+	connID := ConnID(conns.rand.next())
+	conns.m[connID] = conn
+	conns.lock.Unlock()
+
+	return connID
 }
 
-func Send(id ServerID, payload []byte) {
-	servers.lock.Lock()
-	server := servers.m[id]
-	servers.lock.Unlock()
+func ConnSend(id ConnID, payload []byte) {
+	conns.lock.RLock()
+	conn := conns.m[id]
+	conns.lock.RUnlock()
 
-	server.transport.incoming <- payload
+	conn.transport.incoming <- payload
 }
 
-func Recv(id ServerID) []byte {
-	servers.lock.Lock()
-	server := servers.m[id]
-	servers.lock.Unlock()
+func ConnRecv(id ConnID) []byte {
+	conns.lock.RLock()
+	conn := conns.m[id]
+	conns.lock.RUnlock()
 
-	return <-server.transport.outgoing
+	return <-conn.transport.outgoing
 }
 
-func Free(id ServerID) {
-	servers.lock.Lock()
-	delete(servers.m, id)
-	servers.lock.Unlock()
-}
+func ConnClose(id ConnID) {
+	conns.lock.Lock()
+	conn := conns.m[id]
+	delete(conns.m, id)
+	conns.lock.Unlock()
 
-func must(err error) {
-	if err != nil {
-		panic(fmt.Sprintf("%+v", err))
-	}
+	conn.rpcConn.Close()
 }

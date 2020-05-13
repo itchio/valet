@@ -11,7 +11,7 @@ process.on("unhandledRejection", (reason, promise) => {
 });
 
 const util = require("util");
-const valet = require(".");
+const valet = require(".").default;
 
 main()
   .catch((e) => console.warn(e.stack))
@@ -20,7 +20,7 @@ main()
       // @ts-ignore
       require("electron").app.exit(0);
     } catch (e) {
-      console.warn(e);
+      console.warn(e.message);
     }
     process.exit(0);
   });
@@ -52,15 +52,17 @@ function dump(obj) {
 async function main() {
   console.log("===========================");
 
-  let s = valet.newServer({
+  valet.initialize({
     dbPath: "./tmp/butler.db",
   });
+
+  let conn = valet.newConn();
   let id = 1;
 
   let numberToQuadruple = 256;
 
   console.log(`Doing test request...`);
-  s.send(
+  conn.send(
     JSON.stringify({
       jsonrpc: "2.0",
       id,
@@ -73,10 +75,10 @@ async function main() {
   id++;
 
   while (true) {
-    let payload = JSON.parse(s.recv());
+    let payload = JSON.parse(conn.recv());
     if (typeof payload.id !== "undefined" && payload.method) {
       if (payload.method === "Test.Double") {
-        s.send(
+        conn.send(
           JSON.stringify({
             jsonrpc: "2.0",
             id: payload.id,

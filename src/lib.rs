@@ -1,9 +1,16 @@
+use libbutler::{Buffer, Conn};
 use napi::*;
-use std::{error::Error, fmt, os::raw::c_char};
+use std::{error::Error, fmt};
 
 #[derive(Debug)]
 enum ValetError {
-    Butler,
+    Butler(libbutler::Error),
+}
+
+impl From<libbutler::Error> for ValetError {
+    fn from(e: libbutler::Error) -> Self {
+        ValetError::Butler(e)
+    }
 }
 
 impl fmt::Display for ValetError {
@@ -27,83 +34,51 @@ struct TesterState {
     count: i64,
 }
 
-struct ServerState {
-    id: i64,
-}
-
-impl Drop for ServerState {
-    fn drop(&mut self) {
-        unsafe {
-            libbutler::ServerFree(self.id);
-        }
-    }
-}
-
 #[no_mangle]
 unsafe extern "C" fn init(env: JsRawEnv, _exports: JsRawValue) -> JsRawValue {
     let env = JsEnv::new(env);
     env.throwable::<JsError>(&|| {
-        let ret = env.object()?;
+        let valet = env.object()?;
 
-        ret.set_property("name", "butler server")?;
-        ret.set_property("version", {
-            let version = env.object()?;
-            version.set_property("major", 1)?;
-            version.set_property("minor", 3)?;
-            version.set_property("patch", 0)?;
-            version
-        })?;
+        #[allow(unused_variables)]
+        valet.build_class((), |cb| {
+            cb.method_1("initialize", |env, _this, opts: JsValue| {
+                let db_path: String = opts.get_property("dbPath")?;
+                let user_agent: Option<String> = opts.get_property_maybe("userAgent")?;
+                let address: Option<String> = opts.get_property_maybe("address")?;
 
-        let tester = env.object()?;
-        let state = TesterState { count: 0 };
-        tester.build_class(state, |cb| {
-            cb.method_mut_1("set", |_env, this, newcount| {
-                this.count = newcount;
-                Ok(())
+                {
+                    let db_path = Buffer::from(db_path.as_ref());
+                    let user_agent = user_agent.as_ref().map(|s| Buffer::from(s.as_ref()));
+                    let address = address.as_ref().map(|s| Buffer::from(s.as_ref()));
+                    let mut opts = libbutler::InitOpts {
+                        id: 0,
+                        db_path: &db_path,
+                        user_agent: user_agent.as_ref(),
+                        address: address.as_ref(),
+                    };
+                    libbutler::initialize(&mut opts)?;
+                    Ok(())
+                }
             })?;
 
-            cb.method_0("get", |_env, this| Ok(this.count))?;
-
-            Ok(())
-        })?;
-        ret.set_property("tester", tester)?;
-
-        ret.build_class((), |cb| {
-            #[allow(unused_variables)]
-            cb.method_1("newServer", |env, _this, opts: JsValue| {
-                let db_path: String = opts.get_property("dbPath")?;
-
-                let mut opts = libbutler::ServerOpts {
-                    id: 0,
-                    db_path: libbutler::NString::new(&db_path),
-                };
-                let status = libbutler::ServerNew(&mut opts);
-                if !status.success() {
-                    return Err(ValetError::Butler.into());
-                }
+            cb.method_0("newConn", |env, _this| {
+                let conn = Conn::new();
 
                 let ret = env.object()?;
-                ret.set_property("id", opts.id)?;
 
-                let this = ServerState { id: opts.id };
-                ret.build_class(this, |cb| {
-                    cb.method_1("send", |env, this, payload| {
-                        let s: String = payload;
-                        libbutler::ServerSend(
-                            this.id,
-                            libbutler::NString {
-                                value: s.as_ptr() as *const c_char,
-                                len: s.len(),
-                            },
-                        );
-                        drop(s);
+                ret.build_class(conn, |cb| {
+                    cb.method_1("send", |env, this, payload: String| {
+                        println!("sending payload:\n{}", payload);
+                        this.send(&payload)?;
                         Ok(())
                     })?;
 
                     cb.method_0("recv", |env, this| {
-                        let mut ns = libbutler::OwnedNString::new();
-                        libbutler::ServerRecv(this.id, ns.as_mut());
-                        Ok(ns)
+                        this.recv(|payload| {
+                            println!("valet: received payload: {:?}", payload.as_str());
+                        })?;
+                        Ok("")
                     })?;
 
                     Ok(())
@@ -115,7 +90,7 @@ unsafe extern "C" fn init(env: JsRawEnv, _exports: JsRawValue) -> JsRawValue {
             Ok(())
         })?;
 
-        Ok(ret.to_napi(&env)?)
+        Ok(valet.to_napi(&env)?)
     })
 }
 

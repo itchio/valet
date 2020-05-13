@@ -11,68 +11,84 @@ import (
 // #include <stdlib.h>
 //
 // typedef struct {
-//   char *value;
+//   uint8_t *value;
 //   size_t len;
-// } NString;
+// } Buffer;
 //
 // typedef struct {
-//   NString db_path;
-//   int64_t id;
-// } ServerOpts;
+//   Buffer *db_path;
+//   Buffer *user_agent;
+//   Buffer *address;
+// } InitOpts;
+//
+// typedef void (*recv_callback)(void *userdata, Buffer *payload);
+//
+// static void call_recv_callback(recv_callback cb, void *userdata, Buffer *payload) {
+//   cb(userdata, payload);
+// }
 import "C"
 
-//export ServerNew
-func ServerNew(cOpts *C.ServerOpts) C.int {
-	opts := server.NewOpts{
-		DBPath: nstring(&cOpts.db_path),
+//export butler_initialize
+func butler_initialize(cOpts *C.InitOpts) C.int {
+	opts := server.InitOpts{
+		DBPath:    cOpts.db_path.ToString(),
+		UserAgent: cOpts.user_agent.ToString(),
+		Address:   cOpts.address.ToString(),
 	}
 
-	id, err := server.New(opts)
+	err := server.Initialize(opts)
 	if err != nil {
 		log.Printf("Could not create new server: %+v", err)
 		return 1
 	}
 
-	cOpts.id = C.int64_t(id)
 	return 0
 }
 
-//export ServerSend
-func ServerSend(cId C.int64_t, cPayload C.NString) C.int {
-	payload := C.GoBytes(unsafe.Pointer(cPayload.value), C.int(cPayload.len))
-	server.Send(int64(cId), payload)
+//export butler_conn_new
+func butler_conn_new() C.int64_t {
+	return C.int64_t(server.ConnNew())
+}
+
+//export butler_conn_send
+func butler_conn_send(cId C.int64_t, cPayload *C.Buffer) C.int {
+	server.ConnSend(int64(cId), cPayload.ToBytes())
 	return 0
 }
 
-//export ServerRecv
-func ServerRecv(cId C.int64_t, cPayload *C.NString) C.int {
-	payload := server.Recv(int64(cId))
-	ptr := C.CBytes(payload)
-	cPayload.value = (*C.char)(ptr)
-	cPayload.len = C.size_t(len(payload))
+//export butler_conn_recv
+func butler_conn_recv(cId C.int64_t, cb C.recv_callback, userdata unsafe.Pointer) {
+	go func() {
+		payload := server.ConnRecv(int64(cId))
+		cPayload := C.Buffer{
+			value: (*C.uint8_t)(unsafe.Pointer(C.CBytes(payload))),
+			len:   C.size_t(len(payload)),
+		}
+		C.call_recv_callback(cb, userdata, &cPayload)
+		C.free(unsafe.Pointer(cPayload.value))
+	}()
+}
+
+//export butler_conn_close
+func butler_conn_close(cId C.int64_t) C.int {
+	server.ConnClose(int64(cId))
 	return 0
 }
 
-//export ServerFree
-func ServerFree(cId C.int64_t) C.int {
-	server.Free(int64(cId))
-	return 0
-}
-
-//export NStringFree
-func NStringFree(n *C.NString) {
-	if n == nil {
-		return
+func (b *C.Buffer) ToString() string {
+	if unsafe.Pointer(b) == nil {
+		return ""
+	} else {
+		return C.GoStringN((*C.char)(unsafe.Pointer(b.value)), C.int(b.len))
 	}
-
-	if n.value != nil {
-		C.free(unsafe.Pointer(n.value))
-		n.value = nil
-	}
 }
 
-func nstring(n *C.NString) string {
-	return C.GoStringN(n.value, C.int(n.len))
+func (b *C.Buffer) ToBytes() []byte {
+	if unsafe.Pointer(b) == nil {
+		return nil
+	} else {
+		return C.GoBytes(unsafe.Pointer(b.value), C.int(b.len))
+	}
 }
 
 func main() {

@@ -1,10 +1,27 @@
-//@ts-check
-"use strict";
+export interface InitOpts {
+  /** path to DB file */
+  dbPath: string;
 
-/**
- * @returns {string}
- */
-function getOS() {
+  /** user agent */
+  userAgent?: string;
+
+  /** itch.io API address, defaults to "https://itch.io" */
+  address?: string;
+}
+
+export interface Conn {
+  send(payload: string): void;
+  // TODO: promisify
+  recv(): string;
+  close(): void;
+}
+
+export interface ValetStatic {
+  initialize(opts: InitOpts): void;
+  newConn(): Conn;
+}
+
+function getOS(): string {
   switch (process.platform) {
     case "win32":
       return "windows";
@@ -19,10 +36,7 @@ function getOS() {
   }
 }
 
-/**
- * @returns {string}
- */
-function getArch() {
+function getArch(): string {
   switch (process.arch) {
     case "ia32":
       return "i686";
@@ -34,7 +48,7 @@ function getArch() {
 }
 
 let folder = `${getArch()}-${getOS()}`;
-let bindingsPath = `./artifacts/${folder}/index.node`;
+let bindingsPath = `../artifacts/${folder}/index.node`;
 let envKey = "VALET_BINDINGS_PATH";
 let envBindingsPath = process.env[envKey];
 if (envBindingsPath) {
@@ -45,4 +59,5 @@ if (envBindingsPath) {
   );
   bindingsPath = envBindingsPath;
 }
-module.exports = require(bindingsPath);
+let valet: ValetStatic = require(bindingsPath);
+export default valet;

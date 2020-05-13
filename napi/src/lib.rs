@@ -225,6 +225,20 @@ impl JsValue {
         .check()
     }
 
+    pub fn get_property_maybe<K: ToNapi, V: FromNapi>(&self, key: K) -> JsResult<Option<V>> {
+        let mut value = ptr::null_mut();
+        unsafe { napi_get_property(self.env.0, self.value, key.to_napi(&self.env)?, &mut value) }
+            .check()?;
+
+        let mut typ = 0;
+        unsafe { napi_typeof(self.env.0, value, &mut typ) }.check()?;
+        if typ == napi_valuetype_napi_undefined {
+            Ok(None)
+        } else {
+            Ok(Some(V::from_napi(&self.env, value)?))
+        }
+    }
+
     pub fn get_property<K: ToNapi, V: FromNapi>(&self, key: K) -> JsResult<V> {
         let mut value = ptr::null_mut();
         unsafe { napi_get_property(self.env.0, self.value, key.to_napi(&self.env)?, &mut value) }
@@ -469,11 +483,7 @@ impl JsEnv {
         }
 
         let mut copied: usize = 0;
-        // TODO: make that more optimal?
-        let mut res = String::with_capacity(len + 1);
-        for _ in 0..len {
-            res.push('\0');
-        }
+        let mut res = vec![0u8; len + 1];
         unsafe {
             napi_get_value_string_utf8(
                 self.0,
@@ -484,7 +494,8 @@ impl JsEnv {
             )
         }
         .check()?;
-        Ok(res)
+        res.pop(); // pop off null terminator
+        Ok(unsafe { String::from_utf8_unchecked(res) })
     }
 
     pub fn arc_rw_lock_external<T>(&self, data: Arc<RwLock<T>>) -> JsResult<JsValue> {

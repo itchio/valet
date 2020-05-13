@@ -2,9 +2,11 @@
   "name": "valet",
   "version": "0.1.0",
   "description": "butler as a native Node.js addon",
-  "main": "index.js",
+  "typings": "js/index.d.ts",
+  "main": "js/index.js",
   "scripts": {
     "test": "node test.js",
+    "ts": "tsc --build tsconfig.json",
     "build": "node release/build.js",
     "deploy": "node release/deploy.js"
   },
@@ -22,7 +24,8 @@
   },
   "homepage": "https://github.com/itchio/valet#readme",
   "devDependencies": {
-    "@types/node": "^13.13.4"
+    "@types/node": "^13.13.4",
+    "typescript": "^3.8.3"
   },
   "dependencies": {}
 }

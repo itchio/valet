@@ -1,14 +1,14 @@
-use napi::{JsEnv, JsRawValue, JsResult, ToNapi};
-use std::{os::raw::*, ptr};
+use std::{fmt, os::raw::*};
+
+type ButlerRecvCallback = unsafe extern "C" fn(*const c_void, &Buffer);
 
 #[link(name = "butler", kind = "static")]
 extern "C" {
-    pub fn ServerNew(opts: &mut ServerOpts) -> Status;
-    pub fn ServerSend(id: i64, payload: NString) -> Status;
-    pub fn ServerRecv(id: i64, payload: &mut NString) -> Status;
-    pub fn ServerFree(id: i64);
-
-    pub fn NStringFree(ns: &mut NString);
+    fn butler_initialize(opts: &InitOpts) -> Status;
+    fn butler_conn_new() -> i64;
+    fn butler_conn_send(id: i64, payload: &Buffer) -> Status;
+    fn butler_conn_recv(id: i64, cb: ButlerRecvCallback, user_data: *const c_void);
+    fn butler_conn_close(id: i64) -> Status;
 }
 
 #[cfg(target_os = "macos")]
@@ -16,83 +16,130 @@ extern "C" {
 #[link(name = "Security", kind = "framework")]
 extern "C" {}
 
+#[derive(Debug)]
+pub enum Error {
+    Status(Status),
+    UseOfClosedConnection,
+}
+
+impl fmt::Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt::Debug::fmt(self, f)
+    }
+}
+
+impl std::error::Error for Error {}
+
 #[repr(transparent)]
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 pub struct Status(c_int);
 
+impl Default for Status {
+    fn default() -> Self {
+        Self(0)
+    }
+}
+
 impl Status {
+    /// Returns true if this status code indicates success
     pub fn success(self) -> bool {
         self.0 == 0
     }
+
+    /// Convert into an Error if not successful
+    pub fn check<T>(self, value: T) -> Result<T, Error> {
+        if self.success() {
+            Ok(value)
+        } else {
+            Err(Error::Status(self))
+        }
+    }
 }
 
 #[repr(C)]
-pub struct NString {
-    pub value: *const c_char,
+pub struct Buffer {
+    pub value: *const u8,
     pub len: usize,
 }
 
-impl NString {
-    pub fn new(s: &str) -> Self {
+impl From<&str> for Buffer {
+    fn from(s: &str) -> Self {
         Self {
-            value: s.as_ptr() as *const c_char,
+            value: s.as_ptr() as *const u8,
             len: s.len(),
         }
     }
+}
 
-    pub fn free(&mut self) {
+impl Buffer {
+    pub fn as_str(&self) -> &str {
         unsafe {
-            NStringFree(self);
+            let slice = std::slice::from_raw_parts(self.value as *mut u8, self.len);
+            std::str::from_utf8_unchecked(slice)
         }
     }
 }
 
-pub struct OwnedNString {
-    inner: NString,
-}
-
-impl OwnedNString {
-    pub fn new() -> Self {
-        Self {
-            inner: NString {
-                value: ptr::null(),
-                len: 0,
-            },
-        }
-    }
-}
-
-impl AsRef<NString> for OwnedNString {
-    fn as_ref(&self) -> &NString {
-        &self.inner
-    }
-}
-
-impl AsMut<NString> for OwnedNString {
-    fn as_mut(&mut self) -> &mut NString {
-        &mut self.inner
-    }
-}
-
-impl Drop for OwnedNString {
-    fn drop(&mut self) {
-        self.inner.free()
-    }
-}
-
-impl ToNapi for OwnedNString {
-    fn to_napi(&self, env: &JsEnv) -> JsResult<JsRawValue> {
-        let s = unsafe {
-            String::from_raw_parts(self.inner.value as *mut u8, self.inner.len, self.inner.len)
-        };
-        let ret = env.string(&s);
-        std::mem::forget(s);
-        Ok(ret?.value)
+impl AsRef<str> for Buffer {
+    fn as_ref(&self) -> &str {
+        self.as_str()
     }
 }
 
 #[repr(C)]
-pub struct ServerOpts {
-    pub db_path: NString,
+pub struct InitOpts<'a> {
+    pub db_path: &'a Buffer,
+    pub user_agent: Option<&'a Buffer>,
+    pub address: Option<&'a Buffer>,
     pub id: i64,
+}
+
+pub fn initialize(opts: &InitOpts) -> Result<(), Error> {
+    unsafe { butler_initialize(opts) }.check(())
+}
+
+pub struct Conn {
+    id: Option<i64>,
+}
+
+impl Conn {
+    pub fn new() -> Self {
+        let id = unsafe { butler_conn_new() };
+        Self { id: Some(id) }
+    }
+
+    /// Immediately send a message to this connection
+    pub fn send(&self, payload: &str) -> Result<(), Error> {
+        let id = self.id.ok_or(Error::UseOfClosedConnection)?;
+        unsafe { butler_conn_send(id, &payload.into()) }.check(())
+    }
+
+    /// Ask to receive one message from this connection.
+    /// Note: an `Ok` return value does not mean the mean a message was
+    /// successfully received, merely that a receive operation was queued.
+    pub fn recv<F>(&self, f: F) -> Result<(), Error>
+    where
+        F: FnMut(&Buffer),
+    {
+        let id = self.id.ok_or(Error::UseOfClosedConnection)?;
+        let closure = Box::into_raw(Box::new(f));
+        unsafe { butler_conn_recv(id, call_recv_callback::<F>, closure as *const c_void) }
+        Ok(())
+    }
+
+    pub fn close(&mut self) -> Result<(), Error> {
+        self.id
+            .take()
+            .map(|id| unsafe { butler_conn_close(id) })
+            .unwrap_or_default()
+            .check(())
+    }
+}
+
+unsafe extern "C" fn call_recv_callback<F>(user_data: *const c_void, payload: &Buffer)
+where
+    F: FnMut(&Buffer),
+{
+    let mut boxed = Box::from_raw(user_data as *mut F);
+    boxed(payload)
 }
