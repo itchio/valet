@@ -35,7 +35,7 @@ struct TesterState {
 }
 
 #[no_mangle]
-unsafe extern "C" fn init(env: JsRawEnv, _exports: JsRawValue) -> JsRawValue {
+unsafe extern "C" fn init(env: RawEnv, _exports: RawValue) -> RawValue {
     let env = JsEnv::new(env);
     env.throwable::<JsError>(&|| {
         let valet = env.object()?;
@@ -75,10 +75,13 @@ unsafe extern "C" fn init(env: JsRawEnv, _exports: JsRawValue) -> JsRawValue {
                     })?;
 
                     cb.method_0("recv", |env, this| {
-                        this.recv(|payload| {
+                        let (deferred, promise) = env.deferred()?;
+                        this.recv(move |payload| {
                             println!("valet: received payload: {:?}", payload.as_str());
+                            deferred.resolve(payload).unwrap();
+                            println!("valet: resolved!");
                         })?;
-                        Ok("")
+                        Ok(promise)
                     })?;
 
                     Ok(())

@@ -175,3 +175,9 @@ impl Drop for OwnedBuffer {
         unsafe { butler_buffer_free(self) }
     }
 }
+
+impl napi::ToNapi for OwnedBuffer {
+    fn to_napi(&self, env: &napi::JsEnv) -> napi::JsResult<napi::RawValue> {
+        self.as_str().to_napi(env)
+    }
+}

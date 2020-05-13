@@ -9,32 +9,32 @@ use std::{
     sync::{Arc, RwLock},
 };
 
-pub type JsRawValue = nj_sys::napi_value;
-pub type JsRawDeferred = nj_sys::napi_deferred;
-pub type JsRawThreadsafeFunction = nj_sys::napi_threadsafe_function;
-pub type JsRawEnv = nj_sys::napi_env;
+pub type RawValue = nj_sys::napi_value;
+pub type RawDeferred = nj_sys::napi_deferred;
+pub type RawThreadsafeFunction = nj_sys::napi_threadsafe_function;
+pub type RawEnv = nj_sys::napi_env;
 
 pub trait FromNapi
 where
     Self: Sized,
 {
-    fn from_napi(env: &JsEnv, value: napi_value) -> JsResult<Self>;
+    fn from_napi(env: &JsEnv, value: RawValue) -> JsResult<Self>;
 }
 
 impl FromNapi for i64 {
-    fn from_napi(env: &JsEnv, value: napi_value) -> JsResult<Self> {
+    fn from_napi(env: &JsEnv, value: RawValue) -> JsResult<Self> {
         env.get_int64(value)
     }
 }
 
 impl FromNapi for String {
-    fn from_napi(env: &JsEnv, value: napi_value) -> JsResult<Self> {
+    fn from_napi(env: &JsEnv, value: RawValue) -> JsResult<Self> {
         env.get_string(value)
     }
 }
 
 impl FromNapi for JsValue {
-    fn from_napi(env: &JsEnv, value: napi_value) -> JsResult<Self> {
+    fn from_napi(env: &JsEnv, value: RawValue) -> JsResult<Self> {
         Ok(JsValue {
             env: env.clone(),
             value,
@@ -42,72 +42,72 @@ impl FromNapi for JsValue {
     }
 }
 
-impl FromNapi for napi_value {
-    fn from_napi(_env: &JsEnv, value: napi_value) -> JsResult<Self> {
+impl FromNapi for RawValue {
+    fn from_napi(_env: &JsEnv, value: RawValue) -> JsResult<Self> {
         Ok(value)
     }
 }
 
 pub trait ToNapi {
-    fn to_napi(&self, env: &JsEnv) -> JsResult<napi_value>;
+    fn to_napi(&self, env: &JsEnv) -> JsResult<RawValue>;
 }
 
 impl ToNapi for () {
-    fn to_napi(&self, env: &JsEnv) -> JsResult<napi_value> {
+    fn to_napi(&self, env: &JsEnv) -> JsResult<RawValue> {
         Ok(env.undefined().value)
     }
 }
 
 impl ToNapi for String {
-    fn to_napi(&self, env: &JsEnv) -> JsResult<napi_value> {
+    fn to_napi(&self, env: &JsEnv) -> JsResult<RawValue> {
         Ok(env.string(self)?.value)
     }
 }
 
-impl ToNapi for napi_value {
-    fn to_napi(&self, _env: &JsEnv) -> JsResult<napi_value> {
+impl ToNapi for RawValue {
+    fn to_napi(&self, _env: &JsEnv) -> JsResult<RawValue> {
         Ok(*self)
     }
 }
 
 impl ToNapi for &str {
-    fn to_napi(&self, env: &JsEnv) -> JsResult<napi_value> {
+    fn to_napi(&self, env: &JsEnv) -> JsResult<RawValue> {
         Ok(env.string(self)?.value)
     }
 }
 
 impl ToNapi for i64 {
-    fn to_napi(&self, env: &JsEnv) -> JsResult<napi_value> {
+    fn to_napi(&self, env: &JsEnv) -> JsResult<RawValue> {
         Ok(env.int64(*self)?.value)
     }
 }
 
 impl ToNapi for i32 {
-    fn to_napi(&self, env: &JsEnv) -> JsResult<napi_value> {
+    fn to_napi(&self, env: &JsEnv) -> JsResult<RawValue> {
         Ok(env.int32(*self)?.value)
     }
 }
 
 impl ToNapi for u32 {
-    fn to_napi(&self, env: &JsEnv) -> JsResult<napi_value> {
+    fn to_napi(&self, env: &JsEnv) -> JsResult<RawValue> {
         Ok(env.uint32(*self)?.value)
     }
 }
 
 impl ToNapi for f32 {
-    fn to_napi(&self, env: &JsEnv) -> JsResult<napi_value> {
+    fn to_napi(&self, env: &JsEnv) -> JsResult<RawValue> {
         Ok(env.double(*self as f64)?.value)
     }
 }
 
 impl ToNapi for f64 {
-    fn to_napi(&self, env: &JsEnv) -> JsResult<napi_value> {
+    fn to_napi(&self, env: &JsEnv) -> JsResult<RawValue> {
         env.double(*self)?.to_napi(env)
     }
 }
 
 impl ToNapi for bool {
-    fn to_napi(&self, env: &JsEnv) -> JsResult<napi_value> {
+    fn to_napi(&self, env: &JsEnv) -> JsResult<RawValue> {
         env.boolean(*self).to_napi(env)
     }
 }
@@ -115,7 +115,7 @@ impl ToNapi for bool {
 macro_rules! impl_to_napi {
     ($t:ty) => {
         impl ToNapi for $t {
-            fn to_napi(&self, _env: &JsEnv) -> JsResult<napi_value> {
+            fn to_napi(&self, _env: &JsEnv) -> JsResult<RawValue> {
                 Ok(self.value)
             }
         }
@@ -198,14 +198,14 @@ impl Check for napi_status {
 #[derive(Clone, Debug)]
 pub struct JsValue {
     env: JsEnv,
-    pub value: napi_value,
+    pub value: RawValue,
 }
 
 pub trait ToJsValue {
     fn to_js_value(self, env: &JsEnv) -> JsValue;
 }
 
-impl ToJsValue for napi_value {
+impl ToJsValue for RawValue {
     fn to_js_value(self, env: &JsEnv) -> JsValue {
         JsValue {
             env: env.clone(),
@@ -285,7 +285,7 @@ impl<O> ClassBuilder<O> {
             f: &F,
             env: &JsEnv,
             this: Arc<RwLock<O>>,
-            _args: Vec<napi_value>,
+            _args: Vec<RawValue>,
         ) -> Result<T, JsError>
         where
             F: Fn(&JsEnv, &O) -> Result<T, JsError>,
@@ -309,7 +309,7 @@ impl<O> ClassBuilder<O> {
             f: &F,
             env: &JsEnv,
             this: Arc<RwLock<O>>,
-            args: Vec<napi_value>,
+            args: Vec<RawValue>,
         ) -> Result<T, JsError>
         where
             F: Fn(&JsEnv, &O, A1) -> Result<T, JsError>,
@@ -333,7 +333,7 @@ impl<O> ClassBuilder<O> {
             f: &F,
             env: &JsEnv,
             this: Arc<RwLock<O>>,
-            _args: Vec<napi_value>,
+            _args: Vec<RawValue>,
         ) -> Result<T, JsError>
         where
             F: Fn(&JsEnv, &mut O) -> Result<T, JsError>,
@@ -357,7 +357,7 @@ impl<O> ClassBuilder<O> {
             f: &F,
             env: &JsEnv,
             this: Arc<RwLock<O>>,
-            args: Vec<napi_value>,
+            args: Vec<RawValue>,
         ) -> Result<T, JsError>
         where
             F: Fn(&JsEnv, &mut O, A1) -> Result<T, JsError>,
@@ -406,12 +406,12 @@ impl fmt::Debug for JsValueType {
 }
 
 pub struct JsDeferred {
-    deferred: JsRawDeferred,
-    ts: JsRawThreadsafeFunction,
+    deferred: RawDeferred,
+    ts: RawThreadsafeFunction,
 }
 
 impl JsDeferred {
-    pub fn resolve<V>(&self, resolution: V) -> JsResult<()>
+    pub fn resolve<V>(self, resolution: V) -> JsResult<()>
     where
         V: ToNapi + 'static,
     {
@@ -423,7 +423,7 @@ impl JsDeferred {
         unsafe { napi_call_threadsafe_function(self.ts, data as *mut c_void, 1) }.check()
     }
 
-    pub fn reject<V>(&self, resolution: V) -> JsResult<()>
+    pub fn reject<V>(self, resolution: V) -> JsResult<()>
     where
         V: ToNapi + 'static,
     {
@@ -432,13 +432,31 @@ impl JsDeferred {
             resolution: DeferredResolution::Reject(Box::new(resolution)),
         };
         let data = Box::into_raw(Box::new(data));
-        unsafe { napi_call_threadsafe_function(self.ts, data as *mut c_void, 1) }.check()
+        unsafe {
+            napi_call_threadsafe_function(
+                self.ts,
+                data as *mut c_void,
+                napi_threadsafe_function_call_mode_napi_tsfn_blocking,
+            )
+        }
+        .check()
+    }
+}
+
+impl Drop for JsDeferred {
+    fn drop(&mut self) {
+        unsafe {
+            napi_release_threadsafe_function(
+                self.ts,
+                napi_threadsafe_function_release_mode_napi_tsfn_release,
+            );
+        }
     }
 }
 
 pub struct JMethodInfo<T, D> {
     pub this: Arc<RwLock<T>>,
-    pub args: Vec<napi_value>,
+    pub args: Vec<RawValue>,
     pub data: *mut D,
 }
 
@@ -495,7 +513,7 @@ impl JsEnv {
         Ok(value.to_js_value(self))
     }
 
-    pub fn get_int32(&self, value: napi_value) -> JsResult<i32> {
+    pub fn get_int32(&self, value: RawValue) -> JsResult<i32> {
         let mut res = 0;
         unsafe { napi_get_value_int32(self.0, value, &mut res) }.check()?;
         Ok(res)
@@ -507,7 +525,7 @@ impl JsEnv {
         Ok(value.to_js_value(self))
     }
 
-    pub fn get_uint32(&self, value: napi_value) -> JsResult<u32> {
+    pub fn get_uint32(&self, value: RawValue) -> JsResult<u32> {
         let mut res = 0;
         unsafe { napi_get_value_uint32(self.0, value, &mut res) }.check()?;
         Ok(res)
@@ -519,7 +537,7 @@ impl JsEnv {
         Ok(value.to_js_value(self))
     }
 
-    pub fn get_int64(&self, value: napi_value) -> JsResult<i64> {
+    pub fn get_int64(&self, value: RawValue) -> JsResult<i64> {
         let mut res = 0;
         unsafe { napi_get_value_int64(self.0, value, &mut res) }.check()?;
         Ok(res)
@@ -531,13 +549,13 @@ impl JsEnv {
         Ok(value.to_js_value(self))
     }
 
-    pub fn get_double(&self, value: napi_value) -> JsResult<f64> {
+    pub fn get_double(&self, value: RawValue) -> JsResult<f64> {
         let mut res = 0.0;
         unsafe { napi_get_value_double(self.0, value, &mut res) }.check()?;
         Ok(res)
     }
 
-    pub fn get_string(&self, value: napi_value) -> JsResult<String> {
+    pub fn get_string(&self, value: RawValue) -> JsResult<String> {
         let mut len = 0;
         unsafe {
             napi_get_value_string_utf8(self.0, value, ptr::null_mut(), 0, &mut len);
@@ -574,7 +592,7 @@ impl JsEnv {
         Ok(value.to_js_value(self))
     }
 
-    pub fn get_arc_rw_lock_external<T>(&self, external: napi_value) -> JsResult<Arc<RwLock<T>>> {
+    pub fn get_arc_rw_lock_external<T>(&self, external: RawValue) -> JsResult<Arc<RwLock<T>>> {
         let mut value = ptr::null_mut();
         unsafe { napi_get_value_external(self.0, external, &mut value) }.check()?;
 
@@ -617,7 +635,7 @@ impl JsEnv {
     pub fn function<T>(
         &self,
         name: &str,
-        cb: unsafe extern "C" fn(napi_env, napi_callback_info) -> napi_value,
+        cb: unsafe extern "C" fn(napi_env, napi_callback_info) -> RawValue,
         data: T,
     ) -> JsResult<JsValue> {
         let mut value = ptr::null_mut();
@@ -673,7 +691,7 @@ impl JsEnv {
         })
     }
 
-    pub fn throwable<E>(&self, f: &dyn Fn() -> Result<napi_value, E>) -> napi_value
+    pub fn throwable<E>(&self, f: &dyn Fn() -> Result<RawValue, E>) -> RawValue
     where
         E: fmt::Display,
     {
@@ -695,7 +713,7 @@ impl JsEnv {
         unsafe { napi_throw_error(self.0, code.as_ptr(), msg.as_ptr()) };
     }
 
-    pub fn type_of<V: Into<napi_value>>(self, v: V) -> JsResult<JsValueType> {
+    pub fn type_of<V: Into<RawValue>>(self, v: V) -> JsResult<JsValueType> {
         let mut value = 0;
         unsafe { napi_typeof(self.0, v.into(), &mut value) }.check()?;
         Ok(JsValueType(value))
@@ -705,7 +723,7 @@ impl JsEnv {
 pub fn register_module(
     modname: &str,
     filename: &str,
-    init: unsafe extern "C" fn(napi_env, napi_value) -> napi_value,
+    init: unsafe extern "C" fn(napi_env, RawValue) -> RawValue,
 ) {
     let modname = CString::new(modname).unwrap();
     let filename = CString::new(filename).unwrap();
@@ -744,10 +762,10 @@ where
     T: ToNapi,
 {
     f: F,
-    call: fn(&F, &JsEnv, Arc<RwLock<O>>, Vec<napi_value>) -> Result<T, JsError>,
+    call: fn(&F, &JsEnv, Arc<RwLock<O>>, Vec<RawValue>) -> Result<T, JsError>,
 }
 
-unsafe extern "C" fn call_method<'a, O, T, F>(env: napi_env, info: napi_callback_info) -> napi_value
+unsafe extern "C" fn call_method<'a, O, T, F>(env: napi_env, info: napi_callback_info) -> RawValue
 where
     T: ToNapi,
 {
@@ -769,13 +787,13 @@ enum DeferredResolution {
 }
 
 struct DeferredResult {
-    deferred: JsRawDeferred,
+    deferred: RawDeferred,
     resolution: DeferredResolution,
 }
 
 unsafe extern "C" fn call_js_cb(
-    env: JsRawEnv,
-    _callback: JsRawValue,
+    env: RawEnv,
+    _callback: RawValue,
     _context: *mut c_void,
     data: *mut c_void,
 ) {

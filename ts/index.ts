@@ -11,8 +11,7 @@ export interface InitOpts {
 
 export interface Conn {
   send(payload: string): void;
-  // TODO: promisify
-  recv(): string;
+  recv(): Promise<string>;
   close(): void;
 }
 

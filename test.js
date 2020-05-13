@@ -75,7 +75,7 @@ async function main() {
   id++;
 
   while (true) {
-    let payload = JSON.parse(conn.recv());
+    let payload = JSON.parse(await conn.recv());
     if (typeof payload.id !== "undefined" && payload.method) {
       if (payload.method === "Test.Double") {
         conn.send(
