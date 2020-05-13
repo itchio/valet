@@ -1,3 +1,4 @@
+use log::*;
 use std::{
     fmt,
     ops::{Deref, DerefMut},
@@ -172,7 +173,7 @@ impl DerefMut for OwnedBuffer {
 
 impl Drop for OwnedBuffer {
     fn drop(&mut self) {
-        println!("Dropping owned buffer for {:?}", self.as_str());
+        trace!("dropping owned buffer for {:?}", self.as_str());
         unsafe { butler_buffer_free(self) }
     }
 }

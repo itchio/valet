@@ -13,6 +13,8 @@ crate-type = ["cdylib"]
 [dependencies]
 libbutler = { path = "./libbutler" }
 napi = { path = "./napi" }
+log = "0.4.8"
+pretty_env_logger = "0.4.0"
 
 [target.'cfg(windows)'.dependencies]
 napi_stub = { path = "./napi_stub" }

@@ -1,4 +1,5 @@
 use libbutler::{Buffer, Conn};
+use log::*;
 use napi::*;
 use std::{error::Error, fmt};
 
@@ -36,6 +37,8 @@ struct TesterState {
 
 #[no_mangle]
 unsafe extern "C" fn init(env: RawEnv, _exports: RawValue) -> RawValue {
+    pretty_env_logger::init();
+
     let env = JsEnv::new(env);
     env.throwable::<JsError>(&|| {
         let valet = env.object()?;
@@ -69,7 +72,7 @@ unsafe extern "C" fn init(env: RawEnv, _exports: RawValue) -> RawValue {
 
                 ret.build_class(conn, |cb| {
                     cb.method_1("send", |env, this, payload: String| {
-                        println!("sending payload:\n{}", payload);
+                        trace!("sending payload:\n{}", payload);
                         this.send(&payload)?;
                         Ok(())
                     })?;
@@ -77,9 +80,9 @@ unsafe extern "C" fn init(env: RawEnv, _exports: RawValue) -> RawValue {
                     cb.method_0("recv", |env, this| {
                         let (deferred, promise) = env.deferred()?;
                         this.recv(move |payload| {
-                            println!("valet: received payload: {:?}", payload.as_str());
+                            trace!("received payload: {:?}", payload.as_str());
                             deferred.resolve(payload).unwrap();
-                            println!("valet: resolved!");
+                            trace!("resolved!");
                         })?;
                         Ok(promise)
                     })?;

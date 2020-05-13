@@ -16,11 +16,9 @@ const valet = require(".").default;
 main()
   .catch((e) => console.warn(e.stack))
   .then(() => {
-    try {
+    if (typeof process.versions["electron"] !== "undefined") {
       // @ts-ignore
       require("electron").app.exit(0);
-    } catch (e) {
-      console.warn(e.message);
     }
     process.exit(0);
   });
