@@ -20,7 +20,7 @@ const { statSync, mkdirSync, readFileSync, writeFileSync } = require("fs");
  *   libName: string,
  *   architectures: {
  *     [key: string]: {
- *       toolchain: string,
+ *       triplet: string,
  *       prependPath?: string,
  *     }
  *   }
@@ -35,11 +35,11 @@ const OS_INFOS = {
     libName: "valet.dll",
     architectures: {
       i686: {
-        toolchain: "stable-i686-pc-windows-gnu",
+        triplet: "i686-pc-windows-gnu",
         prependPath: "/mingw32/bin",
       },
       x86_64: {
-        toolchain: "stable-x86_64-pc-windows-gnu",
+        triplet: "x86_64-pc-windows-gnu",
         prependPath: "/mingw64/bin",
       },
     },
@@ -48,7 +48,7 @@ const OS_INFOS = {
     libName: "libvalet.so",
     architectures: {
       x86_64: {
-        toolchain: "stable-x86_64-unknown-linux-gnu",
+        triplet: "x86_64-unknown-linux-gnu",
       },
     },
   },
@@ -56,7 +56,7 @@ const OS_INFOS = {
     libName: "libvalet.dylib",
     architectures: {
       x86_64: {
-        toolchain: "stable-x86_64-apple-darwin",
+        triplet: "x86_64-apple-darwin",
       },
     },
   },
@@ -75,6 +75,7 @@ function main(args) {
    *   arch?: string;
    *   test?: boolean;
    *   "test-runtime"?: string;
+   *   rust?: string;
    * }}
    */
   let opts = {};
@@ -95,7 +96,7 @@ function main(args) {
         continue;
       }
 
-      if (k === "os" || k === "arch" || k === "test-runtime") {
+      if (k === "os" || k === "arch" || k === "test-runtime" || k === "rust") {
         i++;
         let v = args[i];
         opts[k] = v;
@@ -172,10 +173,13 @@ function main(args) {
   $(`go version`);
   $(`rustup -V`);
 
-  $(`rustup toolchain install ${archInfo.toolchain}`);
+  let channel = opts.rust || "stable";
+  let toolchain = `${channel}-${archInfo.triplet}`;
+
+  $(`rustup toolchain install ${toolchain}`);
 
   header("Compiling native module");
-  $(`cargo +${archInfo.toolchain} build --release`);
+  $(`cargo +${toolchain} build --release`);
 
   header("Gathering stats");
   let outPath = `./target/release/${osInfo.libName}`;

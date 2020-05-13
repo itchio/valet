@@ -172,6 +172,7 @@ impl DerefMut for OwnedBuffer {
 
 impl Drop for OwnedBuffer {
     fn drop(&mut self) {
+        println!("Dropping owned buffer for {:?}", self.as_str());
         unsafe { butler_buffer_free(self) }
     }
 }
