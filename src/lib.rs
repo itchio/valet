@@ -37,7 +37,7 @@ struct TesterState {
 
 #[no_mangle]
 unsafe extern "C" fn init(env: RawEnv, _exports: RawValue) -> RawValue {
-    pretty_env_logger::init();
+    simple_logger::init_by_env();
 
     let env = JsEnv::new(env);
     env.throwable::<JsError>(&|| {
