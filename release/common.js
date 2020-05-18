@@ -4,10 +4,10 @@
 let verbose = false;
 
 /**
- * @param {number} b The size in bytes
+ * @param {number} b An amount of bytes
  * @returns {string} A human-readable size
  */
-function fileSize(b) {
+function formatSize(b) {
   let KiB = 1024;
   let MiB = 1024 * KiB;
 
@@ -18,6 +18,25 @@ function fileSize(b) {
   } else {
     return `${b} B`;
   }
+}
+
+/**
+ * @param {number} x A number in the [0, 1] range
+ * @returns {string} That number formatted as a percentage
+ */
+function formatPercent(x) {
+  return `${(x * 100).toFixed(2)}%`;
+}
+
+/**
+ * Returns the size of a file in bytes
+ * @param {string} path The path of the file
+ * @returns {number} The size of `path` in bytes
+ */
+function sizeof(path) {
+  const { statSync } = require("fs");
+  const stats = statSync(path);
+  return stats.size;
 }
 
 /**
@@ -155,7 +174,9 @@ module.exports = {
   $,
   $$,
   $bash,
-  fileSize,
+  formatSize,
+  formatPercent,
+  sizeof,
   info,
   header,
   debug,

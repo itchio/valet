@@ -45,6 +45,11 @@ func butler_initialize(cOpts *C.InitOpts) C.int {
 	return 0
 }
 
+//export butler_panic
+func butler_panic() {
+	panic("Panicking from go")
+}
+
 //export butler_conn_new
 func butler_conn_new() C.int64_t {
 	return C.int64_t(server.ConnNew())

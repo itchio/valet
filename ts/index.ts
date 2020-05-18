@@ -18,6 +18,8 @@ export interface Conn {
 export interface ValetStatic {
   initialize(opts: InitOpts): void;
   newConn(): Conn;
+  goPanic(): void;
+  rustPanic(): void;
 }
 
 function getOS(): string {

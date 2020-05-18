@@ -11,7 +11,7 @@ process.on("unhandledRejection", (reason, promise) => {
 });
 
 const util = require("util");
-const valet = require(".").default;
+const valet = require("..").default;
 
 main()
   .catch((e) => console.warn(e.stack))

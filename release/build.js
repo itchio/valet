@@ -8,11 +8,13 @@ const {
   debug,
   header,
   info,
-  fileSize,
+  sizeof,
+  formatSize,
+  formatPercent,
   detectOS,
   setVerbose,
 } = require("./common");
-const { statSync, mkdirSync, readFileSync, writeFileSync } = require("fs");
+const { mkdirSync, readFileSync, writeFileSync } = require("fs");
 
 /**
  * @typedef OsInfo
@@ -73,12 +75,16 @@ function main(args) {
    * @type {{
    *   os?: string;
    *   arch?: string;
-   *   test?: boolean;
+   *   test: boolean;
+   *   strip: boolean;
    *   "test-runtime"?: string;
    *   rust?: string;
    * }}
    */
-  let opts = {};
+  let opts = {
+    test: false,
+    strip: true,
+  };
   if (process.env.CI) {
     info(`In CI, enabling testing`);
     opts.test = true;
@@ -102,6 +108,10 @@ function main(args) {
         opts[k] = v;
       } else if (k == "test") {
         opts.test = true;
+      } else if (k == "strip") {
+        opts.strip = true;
+      } else if (k == "no-strip") {
+        opts.strip = false;
       } else {
         throw new Error(`Unknown long option: ${yellow("--" + k)}`);
       }
@@ -183,13 +193,7 @@ function main(args) {
 
   header("Gathering stats");
   let outPath = `./target/release/${osInfo.libName}`;
-  let stats;
-  try {
-    stats = statSync(outPath);
-  } catch (e) {
-    throw new Error(`Could not find built library: ${e.stack}`);
-  }
-  info(`Artifact is ${fileSize(stats.size)}`);
+  info(`Artifact is ${yellow(formatSize(sizeof(outPath)))}`);
   let artifactDir = `./artifacts/${opts.arch}-${opts.os}`;
   mkdirSync(artifactDir, { recursive: true });
   let artifactPath = `${artifactDir}/index.node`;
@@ -235,7 +239,7 @@ function main(args) {
         );
         $(`npm i --no-save --no-audit electron`);
         process.env.npm_config_arch = old_npm_config_arch;
-        $(`"node_modules/.bin/electron" ../test.js`);
+        $(`"node_modules/.bin/electron" ../tests/test.js`);
       } catch (e) {
         throw e;
       } finally {
@@ -248,6 +252,24 @@ function main(args) {
     }
   } else {
     info(`Skipping testing (enable with ${yellow("--test")})`);
+  }
+
+  if (opts.strip) {
+    info(`Stripping debug symbols (disable with --no-strip)`);
+
+    let before = sizeof(artifactPath);
+
+    // note: Linux & Windows (mingw64) support '--strip-debug' but macOS has big
+    // BSD energy and only supports '-S'
+    $(`strip -S ${artifactPath}`);
+
+    let after = sizeof(artifactPath);
+
+    console.log(
+      `Before: ${yellow(formatSize(before))} ` +
+        `After: ${yellow(formatSize(after))} ` +
+        `(${yellow(formatPercent((before - after) / before))} reduction)`
+    );
   }
 
   info(`All done!`);

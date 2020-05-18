@@ -93,6 +93,14 @@ unsafe extern "C" fn init(env: RawEnv, _exports: RawValue) -> RawValue {
                 Ok(ret)
             })?;
 
+            cb.method_0("rustPanic", |env, _this| -> JsResult<()> {
+                panic!("Panicking from Rust");
+            })?;
+
+            cb.method_0("goPanic", |env, _this| -> JsResult<()> {
+                libbutler::go_panic();
+            })?;
+
             Ok(())
         })?;
 

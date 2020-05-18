@@ -11,6 +11,7 @@ type ButlerRecvCallback = unsafe extern "C" fn(*const c_void, OwnedBuffer);
 extern "C" {
     // static
     fn butler_initialize(opts: &InitOpts) -> Status;
+    fn butler_panic() -> !;
 
     // conn
     fn butler_conn_new() -> i64;
@@ -107,6 +108,10 @@ pub struct InitOpts<'a> {
 
 pub fn initialize(opts: &InitOpts) -> Result<(), Error> {
     unsafe { butler_initialize(opts) }.check(())
+}
+
+pub fn go_panic() -> ! {
+    unsafe { butler_panic() }
 }
 
 pub struct Conn {
