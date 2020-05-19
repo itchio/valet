@@ -5,6 +5,7 @@
   "typings": "js/index.d.ts",
   "main": "js/index.js",
   "files": [
+    "README.md",
     "release/**",
     "js/**"
   ],
@@ -14,7 +15,7 @@
     "build": "node release/build.js",
     "deploy": "node release/deploy.js",
     "postinstall": "node release/postinstall.js",
-    "version": "npm run build -- --test --test-runtime node && node release/version.js && git add -A js",
+    "version": "node release/version.js && git add -A js",
     "postversion": "git push && git push --tags"
   },
   "repository": {

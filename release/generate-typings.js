@@ -1,9 +1,13 @@
 //@ts-check
 "use strict";
 
-const { $bash, info } = require("./common");
+const { $bash, info, header, $ } = require("./common");
 
 function generateTypings() {
+  info("Showing tool versions");
+  $(`node --version`);
+  $(`go version`);
+
   info("Compiling and running generous...");
 
   let oldCwd = process.cwd();
