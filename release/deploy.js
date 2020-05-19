@@ -48,6 +48,7 @@ function main() {
   info(`Will upload targets: ${targets.map(yellow).join(", ")}`);
 
   generateTypings();
+  $(`npm run ts`);
 
   if (process.env.DRY_RUN) {
     info("Dry run, bailing out now");
