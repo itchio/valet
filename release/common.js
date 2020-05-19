@@ -132,10 +132,13 @@ function $bash(cmd) {
 
 /**
  * @param {string} cmd
+ * @param {{silent?: bool}} opts
  * @returns {string} stdout
  */
-function $$(cmd) {
-  console.log(yellow(`📜 ${cmd}`));
+function $$(cmd, opts) {
+  if (!opts.silent) {
+    console.log(yellow(`📜 ${cmd}`));
+  }
   const cp = require("child_process");
   return cp.execSync(cmd, {
     stdio: ["inherit", "pipe", "inherit"],
@@ -210,24 +213,42 @@ async function downloadToStream(url, out) {
     doneSize: 0,
     totalSize: parseInt(contentLength, 10),
     currentDots: 0,
-    totalDots: 20,
+    totalDots: 100,
+    prefix: ``,
   };
-  let prefix = `Downloading ${formatSize(state.totalSize)} `;
 
   let start = Date.now();
 
+  let theme = {
+    chunks: [" ", "▏", "▎", "▍", "▌", "▋", "▊", "▉", "█"],
+    start: "▐",
+    end: "▌",
+    filler: " ",
+  };
+
   const showProgress = () => {
-    process.stdout.write(`\r${prefix}[`);
-    for (let i = 0; i < state.totalDots; i++) {
-      if (i < state.currentDots) {
-        process.stdout.write("-");
-      } else if (i == state.currentDots) {
-        process.stdout.write(">");
-      } else {
-        process.stdout.write(".");
+    let suffix = `${formatSize(state.doneSize)} / ${formatSize(
+      state.totalSize
+    )}`;
+    process.stdout.write(`\r${theme.start}`);
+
+    let units = state.currentDots;
+    let remainWidth = Math.ceil(state.totalDots / 8);
+    while (units > 0) {
+      let chunk = units % 8;
+      if (units >= 8) {
+        chunk = 8;
       }
+      let char = theme.chunks[chunk];
+      process.stdout.write(char);
+      units -= chunk;
+      remainWidth--;
     }
-    process.stdout.write("]");
+    while (remainWidth > 0) {
+      process.stdout.write(theme.filler);
+      remainWidth--;
+    }
+    process.stdout.write(`${theme.end} ${suffix}`);
   };
   showProgress();
 
