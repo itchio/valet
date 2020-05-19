@@ -1,14 +1,16 @@
 //@ts-check
 "use strict";
 
-const { $ } = require("./common");
+const { info, $ } = require("./common");
 const { generateTypings } = require("./generate-typings");
 
 /**
  * @param {string[]} args
  */
 async function main(args) {
+  info("Generating JSON-RPC typings...");
   generateTypings();
+  info("Compiling TypeScript code...");
   $(`npm run ts`);
 }
 

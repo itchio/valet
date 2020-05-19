@@ -1,5 +1,5 @@
 {
-  "name": "valet",
+  "name": "@itchio/valet",
   "version": "0.2.0",
   "description": "butler as a native Node.js addon",
   "typings": "js/index.d.ts",
@@ -13,7 +13,9 @@
     "ts": "tsc --build tsconfig.json",
     "build": "node release/build.js",
     "deploy": "node release/deploy.js",
-    "postinstall": "node release/postinstall.js"
+    "postinstall": "node release/postinstall.js",
+    "version": "npm run build -- --test --test-runtime node && node release/version.js && git add -A js",
+    "postversion": "git push && git push --tags"
   },
   "repository": {
     "type": "git",
