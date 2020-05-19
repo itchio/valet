@@ -8,7 +8,8 @@
     "test": "node tests/test.js",
     "ts": "tsc --build tsconfig.json",
     "build": "node release/build.js",
-    "deploy": "node release/deploy.js"
+    "deploy": "node release/deploy.js",
+    "postinstall": "node release/postinstall.js"
   },
   "repository": {
     "type": "git",
@@ -27,5 +28,7 @@
     "@types/node": "^13.13.4",
     "typescript": "^3.8.3"
   },
-  "dependencies": {}
+  "dependencies": {
+    "extract-zip": "^2.0.0"
+  }
 }

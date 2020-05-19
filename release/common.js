@@ -1,6 +1,9 @@
 //@ts-check
 "use strict";
 
+const fs = require("fs");
+const https = require("https");
+
 let verbose = false;
 
 /**
@@ -170,6 +173,115 @@ function detectOS() {
   }
 }
 
+/**
+ * @param {string} url
+ * @param {fs.WriteStream} out
+ * @returns {Promise<void>}
+ */
+async function downloadToStream(url, out) {
+  let res = await new Promise((resolve, reject) => {
+    let req = https.request(
+      url,
+      {
+        method: "GET",
+      },
+      (res) => {
+        resolve(res);
+      }
+    );
+
+    req.on("error", (e) => {
+      console.log(`Got error: ${e.stack}`);
+      reject(e);
+    });
+    req.end();
+  });
+
+  let redirectURL = res.headers["location"];
+  if (redirectURL) {
+    let url = new URL(redirectURL);
+    debug(`Redirected to ${yellow(url.hostname)}`);
+    res.destroy();
+    return await downloadToStream(redirectURL, out);
+  }
+
+  let contentLength = res.headers["content-length"] || "";
+  let state = {
+    doneSize: 0,
+    totalSize: parseInt(contentLength, 10),
+    currentDots: 0,
+    totalDots: 20,
+  };
+  let prefix = `Downloading ${formatSize(state.totalSize)} `;
+
+  let start = Date.now();
+
+  const showProgress = () => {
+    process.stdout.write(`\r${prefix}[`);
+    for (let i = 0; i < state.totalDots; i++) {
+      if (i < state.currentDots) {
+        process.stdout.write("-");
+      } else if (i == state.currentDots) {
+        process.stdout.write(">");
+      } else {
+        process.stdout.write(".");
+      }
+    }
+    process.stdout.write("]");
+  };
+  showProgress();
+
+  /**
+   * @param {Buffer} data
+   */
+  let onData = (data) => {
+    state.doneSize += data.byteLength;
+    let currentDots = Math.floor(
+      (state.doneSize / state.totalSize) * state.totalDots
+    );
+    while (state.currentDots != currentDots) {
+      state.currentDots = currentDots;
+      showProgress();
+    }
+    out.write(data);
+  };
+  res.on("data", onData);
+  res.on("close", () => {
+    out.close();
+  });
+
+  await new Promise((resolve, reject) => {
+    out.on("close", () => {
+      resolve();
+    });
+    out.on("error", (e) => {
+      console.warn(`I/O error: ${e.stack}`);
+      reject(e);
+    });
+    res.on("aborted", () => {
+      console.warn("Request aborted!");
+      reject(new Error("Request aborted"));
+    });
+  });
+
+  process.stdout.write(
+    "\r                                                       \r"
+  );
+  let end = Date.now();
+
+  let elapsedMS = end - start;
+  let elapsedSeconds = elapsedMS / 1000;
+  let bytesPerSec = state.totalSize / elapsedSeconds;
+
+  let doneIn = `${elapsedSeconds.toFixed(1)}s`;
+  let avgSpeed = `${formatSize(bytesPerSec)}/s`;
+  debug(
+    `Downloaded ${yellow(formatSize(state.totalSize))} in ${yellow(
+      doneIn
+    )}, average DL speed ${yellow(avgSpeed)}`
+  );
+}
+
 module.exports = {
   $,
   $$,
@@ -186,4 +298,5 @@ module.exports = {
   isVerbose,
   setVerbose,
   detectOS,
+  downloadToStream,
 };
