@@ -45,6 +45,6 @@ build:windows:x86_64:
 deploy:
   stage: deploy
   only: ["tags"]
-  tags: ["linux"]
+  tags: ["docker-capsule-64"]
   script:
     - npm run deploy
