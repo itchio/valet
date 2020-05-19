@@ -15,7 +15,14 @@ export interface Conn {
   close(): void;
 }
 
+export interface VersionObject {
+  major: number;
+  minor: number;
+  patch: number;
+}
+
 export interface ValetStatic {
+  version: VersionObject;
   initialize(opts: InitOpts): void;
   newConn(): Conn;
   goPanic(): void;

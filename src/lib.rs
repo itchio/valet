@@ -3,6 +3,8 @@ use log::*;
 use napi::*;
 use std::{error::Error, fmt};
 
+include!("../generated/version.rs");
+
 #[derive(Debug)]
 enum ValetError {
     Butler(libbutler::Error),
@@ -42,6 +44,14 @@ unsafe extern "C" fn init(env: RawEnv, _exports: RawValue) -> RawValue {
     let env = JsEnv::new(env);
     env.throwable::<JsError>(&|| {
         let valet = env.object()?;
+
+        {
+            let version_object = env.object()?;
+            version_object.set_property("major", VERSION.major as i64)?;
+            version_object.set_property("minor", VERSION.minor as i64)?;
+            version_object.set_property("patch", VERSION.patch as i64)?;
+            valet.set_property("version", version_object)?;
+        }
 
         #[allow(unused_variables)]
         valet.build_class((), |cb| {

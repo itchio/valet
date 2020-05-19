@@ -50,6 +50,11 @@ function dump(obj) {
 async function main() {
   console.log("===========================");
 
+  {
+    const { major, minor, patch } = valet.version;
+    console.log(`On valet ${major}.${minor}.${patch}`);
+  }
+
   valet.initialize({
     dbPath: "./tmp/butler.db",
   });

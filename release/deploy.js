@@ -2,7 +2,6 @@
 "use strict";
 
 const { $, $bash, header, yellow, green, blue, info } = require("./common");
-const { generateTypings } = require("./generate-typings");
 const {
   statSync,
   readdirSync,
@@ -46,9 +45,6 @@ function main() {
   rmdirSync("./artifacts/tmp.zip", { recursive: true });
   const targets = readdirSync("./artifacts");
   info(`Will upload targets: ${targets.map(yellow).join(", ")}`);
-
-  generateTypings();
-  $(`npm run ts`);
 
   if (process.env.DRY_RUN) {
     info("Dry run, bailing out now");
