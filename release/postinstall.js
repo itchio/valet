@@ -120,7 +120,7 @@ function shouldSkipDownload(opts) {
 
   if (!existsSync(bindingsPath)) {
     debug(`Bindings don't exist on disk yet`);
-    return true;
+    return false;
   }
 
   let bindingsVersionObject;

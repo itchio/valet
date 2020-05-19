@@ -132,7 +132,7 @@ function $bash(cmd) {
 
 /**
  * @param {string} cmd
- * @param {{silent?: boolean}} opts
+ * @param {{silent?: boolean}} [opts]
  * @returns {string} stdout
  */
 function $$(cmd, opts) {

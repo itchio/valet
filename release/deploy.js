@@ -11,17 +11,24 @@ const {
 } = require("fs");
 
 function main() {
+  let expectedManifestName = "@itchio/valet";
+
   try {
     let manifest = JSON.parse(
       readFileSync("./package.json", { encoding: "utf8" })
     );
-    if (manifest.name !== "valet") {
+    if (manifest.name !== expectedManifestName) {
+      info(
+        `Expected manifest name ${yellow(expectedManifestName)}, got ${yellow(
+          manifest.name
+        )}`
+      );
       throw new Error("Unexpected manifest name");
     }
   } catch (e) {
     throw new Error(
-      `Script must be invoked as 'node release/release.js', from the root repository folder.\n` +
-        `Was invoked from ${yellow(process.cwd())} instead.`
+      `Script must be invoked as 'node release/deploy.js', from the root repository folder.\n` +
+        `Was invoked from ${yellow(process.cwd())}.`
     );
   }
 
