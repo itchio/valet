@@ -136,6 +136,9 @@ function $bash(cmd) {
  * @returns {string} stdout
  */
 function $$(cmd, opts) {
+  if (!opts) {
+    opts = {};
+  }
   if (!opts.silent) {
     console.log(yellow(`📜 ${cmd}`));
   }
