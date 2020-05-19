@@ -4,6 +4,10 @@
   "description": "butler as a native Node.js addon",
   "typings": "js/index.d.ts",
   "main": "js/index.js",
+  "files": [
+    "release/**",
+    "js/**"
+  ],
   "scripts": {
     "test": "node tests/test.js",
     "ts": "tsc --build tsconfig.json",
