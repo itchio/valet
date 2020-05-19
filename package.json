@@ -1,6 +1,6 @@
 {
   "name": "valet",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "butler as a native Node.js addon",
   "typings": "js/index.d.ts",
   "main": "js/index.js",
