@@ -241,7 +241,6 @@ export class Conversation {
       return;
     }
     let payload = JSON.stringify(obj);
-    console.log("Writing payload", payload);
     this.conn.send(payload);
   }
 
