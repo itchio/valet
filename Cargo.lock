@@ -100,7 +100,7 @@ checksum = "53c76489afcdd3a2c348e0484922c8c3df380bfc8d3fa20f1d2250751c9eb75a"
 
 [[package]]
 name = "valet"
-version = "0.8.1"
+version = "0.8.2"
 dependencies = [
  "libbutler",
  "log",
