@@ -221,7 +221,7 @@ function main(args) {
     info("Compiling TypeScript support code...");
     $(`npm run ts`);
 
-    process.env.VALET_BINDINGS_PATH = `../${artifactPath}`;
+    process.env.VALET_BINDINGS_PATH = `${artifactPath}`;
 
     if (testRuntime === "electron") {
       mkdirSync("test-rig", { recursive: true });
@@ -242,7 +242,7 @@ function main(args) {
         $(`npm i --no-save --no-audit electron`);
         process.env.npm_config_arch = old_npm_config_arch;
         $(
-          `"node_modules/.bin/electron" --js-flags=--expose-gc ../tests/test.js`
+          `"node_modules/.bin/electron" --js-flags=--expose-gc --no-sandbox ../tests/test.js`
         );
       } catch (e) {
         throw e;

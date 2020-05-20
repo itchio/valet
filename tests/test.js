@@ -10,7 +10,8 @@ process.on("unhandledRejection", (reason, promise) => {
   process.exit(1);
 });
 
-const { default: valet, Client, createRequest } = require("..");
+const { default: valet, Client } = require("..");
+const { createRequest } = require("../support");
 
 const requests = {
   VersionGet: createRequest("Version.Get"),
