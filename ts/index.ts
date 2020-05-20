@@ -60,17 +60,33 @@ function getArch(): string {
   }
 }
 
-let folder = `${getArch()}-${getOS()}`;
-let bindingsPath = `../artifacts/${folder}/index.node`;
-let envKey = "VALET_BINDINGS_PATH";
-let envBindingsPath = process.env[envKey];
-if (envBindingsPath) {
-  console.log(
-    `valet: bindings path overriden by $${envKey}=${JSON.stringify(
-      envBindingsPath
-    )}`
-  );
-  bindingsPath = envBindingsPath;
+let platform = `${getArch()}-${getOS()}`;
+let basePath = `../artifacts`;
+{
+  let envKey = "VALET_BINDINGS_BASE";
+  let envBindingsBase = process.env[envKey];
+  if (envBindingsBase) {
+    console.log(
+      `valet: bindings base overriden by $${envKey}=${JSON.stringify(
+        envBindingsBase
+      )}`
+    );
+    basePath = envBindingsBase;
+  }
+}
+
+let bindingsPath = `${basePath}/${platform}/index.node`;
+{
+  let envKey = "VALET_BINDINGS_PATH";
+  let envBindingsPath = process.env[envKey];
+  if (envBindingsPath) {
+    console.log(
+      `valet: bindings path overriden by $${envKey}=${JSON.stringify(
+        envBindingsPath
+      )}`
+    );
+    bindingsPath = envBindingsPath;
+  }
 }
 let valet: ValetStatic = require(bindingsPath);
 export default valet;
