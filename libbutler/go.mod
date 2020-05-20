@@ -4,9 +4,11 @@ go 1.14
 
 require (
 	crawshaw.io/sqlite v0.2.5
+	github.com/itchio/boar v0.0.0-20200305195307-d2befc01fa9e
 	github.com/itchio/butler v1.9.1-0.20200520113126-543afe9f2c0c
 	github.com/itchio/go-itchio v0.0.0-20200402182019-61224e60358e // indirect
 	github.com/itchio/headway v0.0.0-20200301160421-e15721f23905
+	github.com/itchio/wharf v0.0.0-20200305150844-3ed0814c4e98
 	github.com/mitchellh/mapstructure v1.2.2 // indirect
 	github.com/pkg/errors v0.9.1
 	golang.org/x/crypto v0.0.0-20200423211502-4bdfaf469ed5 // indirect
