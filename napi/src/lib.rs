@@ -765,7 +765,7 @@ where
     call: fn(&F, &JsEnv, Arc<RwLock<O>>, Vec<RawValue>) -> Result<T, JsError>,
 }
 
-unsafe extern "C" fn call_method<'a, O, T, F>(env: napi_env, info: napi_callback_info) -> RawValue
+unsafe extern "C" fn call_method<O, T, F>(env: napi_env, info: napi_callback_info) -> RawValue
 where
     T: ToNapi,
 {
@@ -776,8 +776,7 @@ where
         let ctx = Box::from_raw(ctx);
         let ret = (ctx.call)(&ctx.f, &env, info.this, info.args)?;
         Box::leak(ctx);
-        let ret = ret.to_napi(&env);
-        ret
+        ret.to_napi(&env)
     })
 }
 
