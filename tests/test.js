@@ -10,35 +10,11 @@ process.on("unhandledRejection", (reason, promise) => {
   process.exit(1);
 });
 
-const util = require("util");
 const { default: valet, Client, createRequest } = require("..");
-
-function logResponse(payload) {
-  if (payload.result) {
-    dump(payload.result);
-  } else if (payload.error && payload.error.data && payload.error.data.stack) {
-    console.log("Error: ");
-    dump(payload.error);
-    throw new Error("request error");
-  } else if (payload.method === "Log") {
-    console.log(payload.params.level, payload.params.message);
-  } else {
-    dump(payload);
-  }
-}
-
-function dump(obj) {
-  console.log(
-    util.inspect(obj, {
-      colors: true,
-      showHidden: false,
-      depth: null,
-    })
-  );
-}
 
 const requests = {
   VersionGet: createRequest("Version.Get"),
+  TestDouble: createRequest("Test.Double"),
   TestDoubleTwice: createRequest("Test.DoubleTwice"),
 };
 
@@ -56,50 +32,25 @@ async function main() {
 
   let client = new Client();
   console.log("Asking for version...");
-  let res = await client.call(requests.VersionGet, {});
-  console.log("Got result:");
-  console.log(res);
+  let version = await client.call(requests.VersionGet, {});
+  console.log(version);
 
+  console.log("Quadrupling number...");
   let numberToQuadruple = 256;
+  let doubleTwiceRes = await client.call(
+    requests.TestDoubleTwice,
+    {
+      number: numberToQuadruple,
+    },
+    (convo) => {
+      convo.onRequest(requests.TestDouble, async ({ number }) => {
+        return { number: number * 2 };
+      });
+    }
+  );
+  console.log(`Result: ${numberToQuadruple} => ${doubleTwiceRes.number}`);
 
-  // console.log(`Doing test request...`);
-  // conn.send(
-  //   JSON.stringify({
-  //     jsonrpc: "2.0",
-  //     id,
-  //     method: "Test.DoubleTwice",
-  //     params: {
-  //       number: numberToQuadruple,
-  //     },
-  //   })
-  // );
-  // id++;
-
-  // while (true) {
-  //   let payload = JSON.parse(await conn.recv());
-  //   if (typeof payload.id !== "undefined" && payload.method) {
-  //     if (payload.method === "Test.Double") {
-  //       conn.send(
-  //         JSON.stringify({
-  //           jsonrpc: "2.0",
-  //           id: payload.id,
-  //           result: {
-  //             number: payload.params.number * 2,
-  //           },
-  //         })
-  //       );
-  //     } else {
-  //       throw new Error(`Unknown client-side method: '${payload.method}'`);
-  //     }
-  //   }
-  //   logResponse(payload);
-
-  //   if (typeof payload.result !== "undefined") {
-  //     break;
-  //   }
-  // }
-
-  // console.log(`Test went fine!`);
+  console.log(`Test went fine!`);
 }
 
 main()

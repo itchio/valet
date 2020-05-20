@@ -36,6 +36,7 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
     }
 };
 exports.__esModule = true;
+exports.Client = void 0;
 var conversation_1 = require("./conversation");
 var Client = /** @class */ (function () {
     function Client() {

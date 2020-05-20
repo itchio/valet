@@ -33,7 +33,7 @@
   "homepage": "https://github.com/itchio/valet#readme",
   "devDependencies": {
     "@types/node": "^13.13.4",
-    "typescript": "^3.8.3"
+    "typescript": "^3.9.3"
   },
   "dependencies": {
     "extract-zip": "^2.0.0"

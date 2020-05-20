@@ -36,6 +36,7 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
     }
 };
 exports.__esModule = true;
+exports.Conversation = void 0;
 var support_1 = require("./support");
 var _1 = require(".");
 var genericResult = support_1.createResult();
@@ -65,6 +66,9 @@ var Conversation = /** @class */ (function () {
                         return [4 /*yield*/, this.conn.recv()];
                     case 1:
                         msg = _a.sent();
+                        if (!msg) {
+                            return [2 /*return*/];
+                        }
                         _a.label = 2;
                     case 2:
                         _a.trys.push([2, 4, , 5]);
@@ -262,7 +266,7 @@ var Conversation = /** @class */ (function () {
             return;
         }
         var payload = JSON.stringify(obj);
-        console.log("Payload = ", payload);
+        console.log("Writing payload", payload);
         this.conn.send(payload);
     };
     Conversation.prototype.cancel = function () {

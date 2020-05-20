@@ -2,7 +2,6 @@ package server
 
 import (
 	"io"
-	"log"
 
 	"github.com/itchio/butler/butlerd/jsonrpc2"
 )
@@ -25,7 +24,7 @@ func newDirectTransport() *directTransport {
 
 func (dt *directTransport) Read() ([]byte, error) {
 	msg := <-dt.incoming
-	if msg == nil || dt.closed {
+	if dt.closed {
 		return nil, io.EOF
 	}
 	return msg, nil
@@ -37,8 +36,6 @@ func (dt *directTransport) Write(msg []byte) error {
 }
 
 func (dt *directTransport) Close() error {
-	log.Printf("Closing direct transport!")
-
 	if dt.closed {
 		return nil
 	}

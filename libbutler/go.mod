@@ -4,7 +4,7 @@ go 1.14
 
 require (
 	crawshaw.io/sqlite v0.2.5
-	github.com/itchio/butler v1.9.1-0.20200512164229-4af58c4c5533
+	github.com/itchio/butler v1.9.1-0.20200520113126-543afe9f2c0c
 	github.com/itchio/go-itchio v0.0.0-20200402182019-61224e60358e // indirect
 	github.com/itchio/headway v0.0.0-20200301160421-e15721f23905
 	github.com/mitchellh/mapstructure v1.2.2 // indirect

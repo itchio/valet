@@ -96,6 +96,10 @@ github.com/itchio/butler v1.9.1-0.20200502221405-0833dc8a2586 h1:Oq3YcNeXwjh5URa
 github.com/itchio/butler v1.9.1-0.20200502221405-0833dc8a2586/go.mod h1:7inA0aTpcLdkhc02A4ap/kcHoYyzqBK0G/g/tYcZh7I=
 github.com/itchio/butler v1.9.1-0.20200512164229-4af58c4c5533 h1:uTJF+d1vZkDV5+cDYYVfWoYLlpchirKeMBX1Y7SohMk=
 github.com/itchio/butler v1.9.1-0.20200512164229-4af58c4c5533/go.mod h1:7inA0aTpcLdkhc02A4ap/kcHoYyzqBK0G/g/tYcZh7I=
+github.com/itchio/butler v1.9.1-0.20200520112918-7498c6429b7f h1:wQCot8Qnzz4IThJEun3czfGSa1fA9rSBb4gusRGt3zY=
+github.com/itchio/butler v1.9.1-0.20200520112918-7498c6429b7f/go.mod h1:7inA0aTpcLdkhc02A4ap/kcHoYyzqBK0G/g/tYcZh7I=
+github.com/itchio/butler v1.9.1-0.20200520113126-543afe9f2c0c h1:kV73bcC+NriIRsHxSfka+aQCtG3QMzMYbaxhfVocdLg=
+github.com/itchio/butler v1.9.1-0.20200520113126-543afe9f2c0c/go.mod h1:7inA0aTpcLdkhc02A4ap/kcHoYyzqBK0G/g/tYcZh7I=
 github.com/itchio/dash v0.0.0-20200305193527-478357e813a2 h1:7D1qbveVnrES+MCh+DoVMnFGSVnxYZbOCzInIF4E6eo=
 github.com/itchio/dash v0.0.0-20200305193527-478357e813a2/go.mod h1:f27hhErRVUtpFG1vshSnKgj2RC1EGlhQy0+6CdTjaiA=
 github.com/itchio/dmcunrar-go v0.0.0-20200301160520-3f7579536695 h1:Z1O6eIsBkYKlWAT9YleMiDkIncvdEJem7PC02xtplww=

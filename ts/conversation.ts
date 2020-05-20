@@ -56,6 +56,10 @@ export class Conversation {
   private async run() {
     while (true) {
       let msg = await this.conn.recv();
+      if (!msg) {
+        return;
+      }
+
       try {
         await this.handleMessage(JSON.parse(msg) as RpcMessage);
       } catch (e) {
@@ -237,7 +241,7 @@ export class Conversation {
       return;
     }
     let payload = JSON.stringify(obj);
-    console.log("Payload = ", payload);
+    console.log("Writing payload", payload);
     this.conn.send(payload);
   }
 
