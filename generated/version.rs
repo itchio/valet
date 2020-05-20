@@ -7,7 +7,7 @@ pub struct Version {
 
 pub const VERSION: Version = Version {
     major: 0,
-    minor: 8,
-    patch: 2,
+    minor: 9,
+    patch: 0,
 };
     
