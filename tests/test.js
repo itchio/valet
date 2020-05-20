@@ -11,17 +11,7 @@ process.on("unhandledRejection", (reason, promise) => {
 });
 
 const util = require("util");
-const valet = require("..").default;
-
-main()
-  .catch((e) => console.warn(e.stack))
-  .then(() => {
-    if (typeof process.versions["electron"] !== "undefined") {
-      // @ts-ignore
-      require("electron").app.exit(0);
-    }
-    process.exit(0);
-  });
+const { default: valet, Client, createRequest } = require("..");
 
 function logResponse(payload) {
   if (payload.result) {
@@ -47,6 +37,11 @@ function dump(obj) {
   );
 }
 
+const requests = {
+  VersionGet: createRequest("Version.Get"),
+  TestDoubleTwice: createRequest("Test.DoubleTwice"),
+};
+
 async function main() {
   console.log("===========================");
 
@@ -59,47 +54,60 @@ async function main() {
     dbPath: "./tmp/butler.db",
   });
 
-  let conn = valet.newConn();
-  let id = 1;
+  let client = new Client();
+  console.log("Asking for version...");
+  let res = await client.call(requests.VersionGet, {});
+  console.log("Got result:");
+  console.log(res);
 
   let numberToQuadruple = 256;
 
-  console.log(`Doing test request...`);
-  conn.send(
-    JSON.stringify({
-      jsonrpc: "2.0",
-      id,
-      method: "Test.DoubleTwice",
-      params: {
-        number: numberToQuadruple,
-      },
-    })
-  );
-  id++;
+  // console.log(`Doing test request...`);
+  // conn.send(
+  //   JSON.stringify({
+  //     jsonrpc: "2.0",
+  //     id,
+  //     method: "Test.DoubleTwice",
+  //     params: {
+  //       number: numberToQuadruple,
+  //     },
+  //   })
+  // );
+  // id++;
 
-  while (true) {
-    let payload = JSON.parse(await conn.recv());
-    if (typeof payload.id !== "undefined" && payload.method) {
-      if (payload.method === "Test.Double") {
-        conn.send(
-          JSON.stringify({
-            jsonrpc: "2.0",
-            id: payload.id,
-            result: {
-              number: payload.params.number * 2,
-            },
-          })
-        );
-      } else {
-        throw new Error(`Unknown client-side method: '${payload.method}'`);
-      }
-    }
-    logResponse(payload);
+  // while (true) {
+  //   let payload = JSON.parse(await conn.recv());
+  //   if (typeof payload.id !== "undefined" && payload.method) {
+  //     if (payload.method === "Test.Double") {
+  //       conn.send(
+  //         JSON.stringify({
+  //           jsonrpc: "2.0",
+  //           id: payload.id,
+  //           result: {
+  //             number: payload.params.number * 2,
+  //           },
+  //         })
+  //       );
+  //     } else {
+  //       throw new Error(`Unknown client-side method: '${payload.method}'`);
+  //     }
+  //   }
+  //   logResponse(payload);
 
-    if (typeof payload.result !== "undefined") {
-      break;
-    }
-  }
+  //   if (typeof payload.result !== "undefined") {
+  //     break;
+  //   }
+  // }
 
-  console.log(`Test went fine!`);
+  // console.log(`Test went fine!`);
 }
+
+main()
+  .catch((e) => console.warn(e.stack))
+  .then(() => {
+    if (typeof process.versions["electron"] !== "undefined") {
+      // @ts-ignore
+      require("electron").app.exit(0);
+    }
+    process.exit(0);
+  });

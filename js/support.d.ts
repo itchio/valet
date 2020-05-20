@@ -8,12 +8,6 @@ export declare enum StandardErrorCode {
 export interface IDGenerator {
     generateID(): number;
 }
-export interface Endpoint {
-    secret: string;
-    tcp: {
-        address: string;
-    };
-}
 export interface RequestCreator<Params, Result> {
     (params: Params): (gen: IDGenerator) => Request<Params, Result>;
     __method: string;

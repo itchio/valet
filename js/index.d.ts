@@ -1,3 +1,6 @@
+export * from "./support";
+export * from "./client";
+export * from "./conversation";
 export interface InitOpts {
     /** path to DB file */
     dbPath: string;

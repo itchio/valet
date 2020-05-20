@@ -97,6 +97,11 @@ unsafe extern "C" fn init(env: RawEnv, _exports: RawValue) -> RawValue {
                         Ok(promise)
                     })?;
 
+                    cb.method_mut_0("close", |env, this| {
+                        this.close()?;
+                        Ok(())
+                    })?;
+
                     Ok(())
                 })?;
 
