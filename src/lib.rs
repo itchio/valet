@@ -97,7 +97,7 @@ unsafe extern "C" fn init(env: RawEnv, _exports: RawValue) -> RawValue {
                             }
                             None => {
                                 trace!("received null payload");
-                                deferred.resolve("");
+                                deferred.resolve("")?;
                             }
                         })?;
                         Ok(promise)
