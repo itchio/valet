@@ -241,7 +241,9 @@ function main(args) {
         );
         $(`npm i --no-save --no-audit electron`);
         process.env.npm_config_arch = old_npm_config_arch;
-        $(`"node_modules/.bin/electron" ../tests/test.js`);
+        $(
+          `"node_modules/.bin/electron" --js-flags=--expose-gc ../tests/test.js`
+        );
       } catch (e) {
         throw e;
       } finally {

@@ -89,10 +89,16 @@ unsafe extern "C" fn init(env: RawEnv, _exports: RawValue) -> RawValue {
 
                     cb.method_0("recv", |env, this| {
                         let (deferred, promise) = env.deferred()?;
-                        this.recv(move |payload| {
-                            trace!("received payload: {:?}", payload.as_str());
-                            deferred.resolve(payload).unwrap();
-                            trace!("resolved!");
+                        this.recv(move |payload| match payload {
+                            Some(payload) => {
+                                trace!("received payload: {:?}", payload.as_str());
+                                deferred.resolve(payload).unwrap();
+                                trace!("resolved!");
+                            }
+                            None => {
+                                trace!("received null payload");
+                                deferred.resolve("");
+                            }
                         })?;
                         Ok(promise)
                     })?;

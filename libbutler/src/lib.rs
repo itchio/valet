@@ -135,7 +135,7 @@ impl Conn {
     /// successfully received, merely that a receive operation was queued.
     pub fn recv<F>(&self, f: F) -> Result<(), Error>
     where
-        F: FnOnce(OwnedBuffer),
+        F: FnOnce(Option<OwnedBuffer>),
     {
         let id = self.id.ok_or(Error::UseOfClosedConnection)?;
         let closure = Box::into_raw(Box::new(f));
@@ -154,10 +154,14 @@ impl Conn {
 
 unsafe extern "C" fn call_recv_callback<F>(user_data: *const c_void, payload: OwnedBuffer)
 where
-    F: FnOnce(OwnedBuffer),
+    F: FnOnce(Option<OwnedBuffer>),
 {
     let boxed = Box::from_raw(user_data as *mut F);
-    boxed(payload)
+    if payload.len == 0 {
+        boxed(None)
+    } else {
+        boxed(Some(payload))
+    }
 }
 
 #[repr(transparent)]

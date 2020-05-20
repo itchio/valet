@@ -148,6 +148,9 @@ func ConnRecv(id ConnID) []byte {
 	conn := conns.m[id]
 	conns.lock.RUnlock()
 
+	if conn == nil {
+		return nil
+	}
 	return <-conn.transport.outgoing
 }
 

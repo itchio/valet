@@ -56,6 +56,21 @@ async function main() {
 main()
   .catch((e) => console.warn(e.stack))
   .then(() => {
+    if (typeof global.gc !== "undefined") {
+      console.log("Triggering a few GC rounds..");
+      for (let i = 0; i < 5; i++) {
+        global.gc();
+      }
+    } else {
+      console.log("GC not exposed :(");
+    }
+    return new Promise((resolve, reject) => {
+      console.log("Waiting 500ms...");
+      setTimeout(resolve, 500);
+    });
+  })
+  .then(() => {
+    console.log("Exiting!");
     if (typeof process.versions["electron"] !== "undefined") {
       // @ts-ignore
       require("electron").app.exit(0);

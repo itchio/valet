@@ -10,7 +10,7 @@
     "js/**"
   ],
   "scripts": {
-    "test": "node tests/test.js",
+    "test": "node --expose-gc tests/test.js",
     "ts": "tsc --build tsconfig.json",
     "build": "node release/build.js",
     "deploy": "node release/deploy.js",

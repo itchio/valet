@@ -14,6 +14,6 @@ target
 *.dll
 *.zip
 .gdb_history
-/tmp
+tmp
 /release-tools
 /js
