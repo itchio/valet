@@ -1,5 +1,4 @@
-// this file can be imported without pulling in node.js's "net"
-// module etc., so it can be used in a browser context for example.
+// this file can be imported in a browser context
 
 export enum StandardErrorCode {
   ParseError = -32700,

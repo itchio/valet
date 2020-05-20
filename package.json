@@ -2,8 +2,8 @@
   "name": "@itchio/valet",
   "version": "0.10.1",
   "description": "butler as a native Node.js addon",
-  "typings": "js/index.d.ts",
-  "main": "js/index.js",
+  "typings": "index.d.ts",
+  "main": "index.js",
   "files": [
     "README.md",
     "release/**",

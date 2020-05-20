@@ -16,4 +16,6 @@ target
 .gdb_history
 tmp
 /release-tools
-/js
+/*.js
+/*.d.ts
+

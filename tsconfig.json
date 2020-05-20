@@ -1,9 +1,11 @@
 {
-  "compilerOptions": {
-    "outDir": "js",
-    "rootDir": "ts",
-    "declaration": true,
-    "strict": true,
-    "resolveJsonModule": true
-  }
+    "include": ["./ts/**/*"],
+    "exclude": [],
+    "compilerOptions": {
+        "outDir": ".",
+        "rootDir": "ts",
+        "declaration": true,
+        "strict": true,
+        "resolveJsonModule": true
+    }
 }
