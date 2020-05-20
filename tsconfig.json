@@ -4,5 +4,6 @@
     "rootDir": "ts",
     "declaration": true,
     "strict": true,
+    "resolveJsonModule": true
   }
 }
