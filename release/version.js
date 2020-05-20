@@ -1,8 +1,7 @@
 //@ts-check
 "use strict";
 
-const { info, $ } = require("./common");
-const { generateTypings } = require("./generate-typings");
+const { yellow, info, $ } = require("./common");
 const { readFileSync, writeFileSync } = require("fs");
 
 /**
@@ -10,7 +9,7 @@ const { readFileSync, writeFileSync } = require("fs");
  */
 async function main(args) {
   const { version } = require("../package.json");
-  info(`Bumped to version ${version}`);
+  info(`Bumped to version ${yellow(version)}`);
 
   info("Editing Cargo.toml...");
   let contents = readFileSync("Cargo.toml", { encoding: "utf8" });
@@ -34,9 +33,12 @@ async function main(args) {
   writeFileSync("Cargo.toml", contents, { encoding: "utf8" });
 
   info("Generating JSON-RPC typings...");
-  generateTypings();
+  $(`npm run generate-typings`);
   info("Compiling TypeScript code...");
   $(`npm run ts`);
+
+  info("Adding files to git");
+  $(`git add -A Cargo.toml Cargo.lock generated/version.rs ts/messages.ts`);
 }
 
 main(process.argv.slice(2)).catch((e) => {

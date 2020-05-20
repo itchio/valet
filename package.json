@@ -12,10 +12,11 @@
   "scripts": {
     "test": "node --expose-gc tests/test.js",
     "ts": "tsc --build tsconfig.json",
+    "generate-typings": "node release/generate-typings.js",
     "build": "node release/build.js",
     "deploy": "node release/deploy.js",
     "postinstall": "node release/postinstall.js",
-    "version": "node release/version.js && git add -A Cargo.toml Cargo.lock generated/version.rs",
+    "version": "node release/version.js",
     "postversion": "git push && git push --tags"
   },
   "repository": {

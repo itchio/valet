@@ -3,7 +3,10 @@
 
 const { $bash, info, header, $ } = require("./common");
 
-function generateTypings() {
+/**
+ * @param {string[]} args
+ */
+async function main(args) {
   info("Showing tool versions");
   $(`node --version`);
   $(`go version`);
@@ -24,4 +27,6 @@ function generateTypings() {
   info(`Typescript typings generated!`);
 }
 
-module.exports = { generateTypings };
+main(process.argv.slice(2)).catch((e) => {
+  throw new Error(e.stack);
+});

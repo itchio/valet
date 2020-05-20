@@ -1,6 +1,7 @@
 export * from "./support";
 export * from "./client";
 export * from "./conversation";
+export * as messages from "./messages";
 
 export interface InitOpts {
   /** path to DB file */
