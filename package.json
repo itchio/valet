@@ -15,7 +15,7 @@
     "build": "node release/build.js",
     "deploy": "node release/deploy.js",
     "postinstall": "node release/postinstall.js",
-    "version": "node release/version.js && git add -A Cargo.toml",
+    "version": "node release/version.js && git add -A Cargo.toml Cargo.lock generated/version.rs",
     "postversion": "git push && git push --tags"
   },
   "repository": {

@@ -27,6 +27,8 @@ async function main(args) {
   if (!foundVersion) {
     throw new Error("Could not find version line in Cargo.toml!");
   }
+  info("Cargo checking...");
+  $(`cargo check`);
 
   contents = lines.join("\n");
   writeFileSync("Cargo.toml", contents, { encoding: "utf8" });

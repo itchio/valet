@@ -215,6 +215,8 @@ function main(args) {
   }
 
   if (opts.test) {
+    process.env.RUST_BACKTRACE = "1";
+
     header("Testing generated bindings");
     info("Compiling TypeScript support code...");
     $(`npm run ts`);
