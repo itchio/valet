@@ -2,7 +2,7 @@
 "use strict";
 
 const {
-  yellow,
+  chalk,
   detectOS,
   formatSize,
   sizeof,
@@ -10,7 +10,7 @@ const {
   debug,
   setVerbose,
   $$,
-} = require("./common");
+} = require("@itchio/bob");
 const { resolve } = require("path");
 const { createWriteStream, rmdirSync, mkdirSync, existsSync } = require("fs");
 
@@ -52,9 +52,9 @@ async function main(args) {
 
   if (existsSync("Cargo.toml") && !opts.force) {
     console.log(
-      `In development (${yellow(
+      `In development (${chalk.yellow(
         `Cargo.toml`
-      )} found), skipping postinstall (Use ${yellow("--force")} to force)`
+      )} found), skipping postinstall (Use ${chalk.yellow("--force")} to force)`
     );
     return;
   }
@@ -62,24 +62,26 @@ async function main(args) {
   let { version } = require("../package.json");
 
   if (opts.userSpecifiedOS) {
-    console.log(`Using user-specified os ${yellow(opts.os)}`);
+    console.log(`Using user-specified os ${chalk.yellow(opts.os)}`);
   } else {
-    debug(`Using detected os ${yellow(opts.os)}`);
+    debug(`Using detected os ${chalk.yellow(opts.os)}`);
   }
 
   if (opts.userSpecifiedArch) {
-    console.log(`Using user-specified arch ${yellow(opts.arch)}`);
+    console.log(`Using user-specified arch ${chalk.yellow(opts.arch)}`);
   } else {
-    debug(`Using detected arch ${yellow(opts.arch)}`);
+    debug(`Using detected arch ${chalk.yellow(opts.arch)}`);
   }
 
   let platform = `${opts.arch}-${opts.os}`;
-  console.log(`valet ${yellow(version)} on ${yellow(platform)}`);
+  console.log(`valet ${chalk.yellow(version)} on ${chalk.yellow(platform)}`);
 
   let bindingsPath = `./artifacts/${platform}/index.node`;
 
   if (!(opts.userSpecifiedArch || opts.userSpecifiedOS)) {
-    debug(`Platform is fully autodetected, probing ${yellow(bindingsPath)}`);
+    debug(
+      `Platform is fully autodetected, probing ${chalk.yellow(bindingsPath)}`
+    );
     if (shouldSkipDownload({ bindingsPath, version })) {
       debug(`Nothing to do`);
       return;
@@ -93,7 +95,7 @@ async function main(args) {
   mkdirSync(resolve(output, ".."), { recursive: true });
   let out = createWriteStream(output, { autoClose: true });
 
-  debug(`Downloading from ${yellow(url)}`);
+  debug(`Downloading from ${chalk.yellow(url)}`);
   await downloadToStream(url, out);
 
   const extract = require("extract-zip");
@@ -101,14 +103,16 @@ async function main(args) {
 
   let bindingsSize = sizeof(bindingsPath);
   debug(
-    `Bindings ${yellow(bindingsPath)} is ${yellow(formatSize(bindingsSize))}`
+    `Bindings ${chalk.yellow(bindingsPath)} is ${chalk.yellow(
+      formatSize(bindingsSize)
+    )}`
   );
 
   rmdirSync("./artifacts/tmp.zip", { recursive: true });
 
   let end = Date.now();
   let totalTime = `${((end - start) / 1000).toFixed(1)}s`;
-  debug(`Total time: ${yellow(totalTime)}`);
+  debug(`Total time: ${chalk.yellow(totalTime)}`);
 }
 
 /**
@@ -140,7 +144,7 @@ function shouldSkipDownload(opts) {
 
   let { major, minor, patch } = bindingsVersionObject;
   let bindingsVersion = `${major}.${minor}.${patch}`;
-  debug(`Bindings on disk have version ${yellow(bindingsVersion)}`);
+  debug(`Bindings on disk have version ${chalk.yellow(bindingsVersion)}`);
 
   if (bindingsVersion !== version) {
     debug(`Bindings on disk are the wrong version`);

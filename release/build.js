@@ -13,7 +13,7 @@ const {
   formatPercent,
   detectOS,
   setVerbose,
-} = require("./common");
+} = require("@itchio/bob");
 const { mkdirSync, readFileSync, writeFileSync } = require("fs");
 
 /**

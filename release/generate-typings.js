@@ -1,7 +1,7 @@
 //@ts-check
 "use strict";
 
-const { $bash, info, header, $ } = require("./common");
+const { $bash, info, header, $ } = require("@itchio/bob");
 
 /**
  * @param {string[]} args

@@ -1,7 +1,7 @@
 //@ts-check
 "use strict";
 
-const { $, $bash, header, chalk, info } = require("./common");
+const { $, $bash, header, chalk, info } = require("@itchio/bob");
 const {
   statSync,
   readdirSync,

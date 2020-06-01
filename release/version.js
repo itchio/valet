@@ -1,7 +1,7 @@
 //@ts-check
 "use strict";
 
-const { yellow, info, $ } = require("./common");
+const { chalk, info, $ } = require("@itchio/bob");
 const { readFileSync, writeFileSync } = require("fs");
 
 /**
@@ -9,7 +9,7 @@ const { readFileSync, writeFileSync } = require("fs");
  */
 async function main(args) {
   const { version } = require("../package.json");
-  info(`Bumped to version ${yellow(version)}`);
+  info(`Bumped to version ${chalk.yellow(version)}`);
 
   info("Editing Cargo.toml...");
   let contents = readFileSync("Cargo.toml", { encoding: "utf8" });
