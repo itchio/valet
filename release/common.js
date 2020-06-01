@@ -46,7 +46,7 @@ function sizeof(path) {
  * @param {string} line
  */
 function info(line) {
-  console.log(blue(`💡 ${line}`));
+  console.log(chalk.blue(`💡 ${line}`));
 }
 
 /**
@@ -56,9 +56,9 @@ function header(line) {
   let bar = "―".repeat(line.length + 2);
 
   console.log();
-  console.log(blue(bar));
-  console.log(blue(` ${line} `));
-  console.log(blue(bar));
+  console.log(chalk.blue(bar));
+  console.log(chalk.blue(` ${line} `));
+  console.log(chalk.blue(bar));
   console.log();
 }
 
@@ -70,42 +70,52 @@ function debug() {
   console.log.apply(console, arguments);
 }
 
-const colors = {
-  green: "\x1b[1;32;40m",
-  yellow: "\x1b[1;33;40m",
-  blue: "\x1b[1;34;40m",
-  reset: "\x1b[0;0;0m",
+const chalk = {
+  colors: {
+    green: "\x1b[1;32;40m",
+    yellow: "\x1b[1;33;40m",
+    blue: "\x1b[1;34;40m",
+    magenta: "\x1b[1;35;40m",
+    cyan: "\x1b[1;36;40m",
+    reset: "\x1b[0;0;0m",
+  },
+  /**
+   * @param {any} s
+   */
+  green: function (s) {
+    return `${chalk.colors.green}${s}${chalk.colors.reset}`;
+  },
+  /**
+   * @param {any} s
+   */
+  yellow: function (s) {
+    return `${chalk.colors.yellow}${s}${chalk.colors.reset}`;
+  },
+  /**
+   * @param {any} s
+   */
+  blue: function (s) {
+    return `${chalk.colors.blue}${s}${chalk.colors.reset}`;
+  },
+  /**
+   * @param {any} s
+   */
+  magenta: function (s) {
+    return `${chalk.colors.magenta}${s}${chalk.colors.reset}`;
+  },
+  /**
+   * @param {any} s
+   */
+  cyan: function (s) {
+    return `${chalk.colors.cyan}${s}${chalk.colors.reset}`;
+  },
 };
-
-/**
- * @param {string} s
- * @return {string}
- */
-function yellow(s) {
-  return `${colors.yellow}${s}${colors.reset}`;
-}
-
-/**
- * @param {string} s
- * @return {string}
- */
-function blue(s) {
-  return `${colors.blue}${s}${colors.reset}`;
-}
-
-/**
- * @param {string} s
- * @return {string}
- */
-function green(s) {
-  return `${colors.green}${s}${colors.reset}`;
-}
 
 /**
  * @param {string} cmd
  */
 function $(cmd) {
-  console.log(yellow(`📜 ${cmd}`));
+  console.log(chalk.yellow(`📜 ${cmd}`));
   const cp = require("child_process");
   cp.execSync(cmd, {
     stdio: "inherit",
@@ -116,7 +126,7 @@ function $(cmd) {
  * @param {string} cmd
  */
 function $bash(cmd) {
-  console.log(yellow(`📝 ${cmd}`));
+  console.log(chalk.yellow(`📝 ${cmd}`));
   const cp = require("child_process");
   if (detectOS() === "windows") {
     cp.execSync("bash", {
@@ -140,7 +150,7 @@ function $$(cmd, opts) {
     opts = {};
   }
   if (!opts.silent) {
-    console.log(yellow(`📜 ${cmd}`));
+    console.log(chalk.yellow(`📜 ${cmd}`));
   }
   const cp = require("child_process");
   return cp.execSync(cmd, {
@@ -206,7 +216,7 @@ async function downloadToStream(url, out) {
   let redirectURL = res.headers["location"];
   if (redirectURL) {
     let url = new URL(redirectURL);
-    debug(`Redirected to ${yellow(url.hostname)}`);
+    debug(`Redirected to ${chalk.yellow(url.hostname)}`);
     res.destroy();
     return await downloadToStream(redirectURL, out);
   }
@@ -300,9 +310,9 @@ async function downloadToStream(url, out) {
   let doneIn = `${elapsedSeconds.toFixed(1)}s`;
   let avgSpeed = `${formatSize(bytesPerSec)}/s`;
   debug(
-    `Downloaded ${yellow(formatSize(state.totalSize))} in ${yellow(
+    `Downloaded ${chalk.yellow(formatSize(state.totalSize))} in ${chalk.yellow(
       doneIn
-    )}, average DL speed ${yellow(avgSpeed)}`
+    )}, average DL speed ${chalk.yellow(avgSpeed)}`
   );
 }
 
@@ -316,9 +326,7 @@ module.exports = {
   info,
   header,
   debug,
-  yellow,
-  blue,
-  green,
+  chalk,
   isVerbose,
   setVerbose,
   detectOS,

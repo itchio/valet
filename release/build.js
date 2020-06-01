@@ -4,7 +4,7 @@
 const {
   $,
   $$,
-  yellow,
+  chalk,
   debug,
   header,
   info,
@@ -113,12 +113,12 @@ function main(args) {
       } else if (k == "no-strip") {
         opts.strip = false;
       } else {
-        throw new Error(`Unknown long option: ${yellow("--" + k)}`);
+        throw new Error(`Unknown long option: ${chalk.yellow("--" + k)}`);
       }
     } else if (arg === "-v") {
       setVerbose(true);
     } else if (arg.startsWith("-")) {
-      throw new Error(`Unsupported flag: ${yellow(arg)}`);
+      throw new Error(`Unsupported flag: ${chalk.yellow(arg)}`);
     } else {
       positional.push(arg);
     }
@@ -128,34 +128,36 @@ function main(args) {
   if (!opts.os) {
     opts.os = detectOS();
     console.log(
-      `Using detected OS ${yellow(opts.os)} (use ${yellow("--os")} to override)`
+      `Using detected OS ${chalk.yellow(opts.os)} (use ${chalk.yellow(
+        "--os"
+      )} to override)`
     );
   } else {
-    console.log(`Using specified OS ${yellow(opts.os)}`);
+    console.log(`Using specified OS ${chalk.yellow(opts.os)}`);
   }
 
   let osInfo = OS_INFOS[opts.os];
   debug({ osInfo });
   if (!osInfo) {
-    throw new Error(`Unsupported OS ${yellow(opts.os)}`);
+    throw new Error(`Unsupported OS ${chalk.yellow(opts.os)}`);
   }
 
   if (!opts.arch) {
     opts.arch = DEFAULT_ARCH;
     console.log(
-      `Using default arch ${yellow(opts.arch)} (use ${yellow(
+      `Using default arch ${chalk.yellow(opts.arch)} (use ${chalk.yellow(
         "--arch"
       )} to override)`
     );
   } else {
-    console.log(`Using specified arch ${yellow(opts.arch)}`);
+    console.log(`Using specified arch ${chalk.yellow(opts.arch)}`);
   }
 
   let testRuntime = opts["test-runtime"] || "electron";
   if (["node", "electron"].indexOf(testRuntime) === -1) {
-    throw new Error(`Unrecognized test runtime ${yellow(testRuntime)}`);
+    throw new Error(`Unrecognized test runtime ${chalk.yellow(testRuntime)}`);
   }
-  console.log(`Will use test runtime ${yellow(testRuntime)}`);
+  console.log(`Will use test runtime ${chalk.yellow(testRuntime)}`);
 
   let archInfo = osInfo.architectures[opts.arch];
   debug({ archInfo });
@@ -167,13 +169,13 @@ function main(args) {
     if (opts.os === "windows") {
       let prependPath = $$(`cygpath -w ${archInfo.prependPath}`).trim();
       console.log(
-        `Prepending ${yellow(archInfo.prependPath)} (aka ${yellow(
+        `Prepending ${chalk.yellow(archInfo.prependPath)} (aka ${chalk.yellow(
           prependPath
         )}) to $PATH`
       );
       process.env.PATH = `${prependPath};${process.env.PATH}`;
     } else {
-      console.log(`Prepending ${yellow(archInfo.prependPath)} to $PATH`);
+      console.log(`Prepending ${chalk.yellow(archInfo.prependPath)} to $PATH`);
       process.env.PATH = `${archInfo.prependPath}:${process.env.PATH}`;
     }
   }
@@ -193,7 +195,7 @@ function main(args) {
 
   header("Gathering stats");
   let outPath = `./target/release/${osInfo.libName}`;
-  info(`Artifact is ${yellow(formatSize(sizeof(outPath)))}`);
+  info(`Artifact is ${chalk.yellow(formatSize(sizeof(outPath)))}`);
   let artifactDir = `./artifacts/${opts.arch}-${opts.os}`;
   mkdirSync(artifactDir, { recursive: true });
   let artifactPath = `${artifactDir}/index.node`;
@@ -234,10 +236,12 @@ function main(args) {
         } else if (opts.arch === "x86_64") {
           process.env.npm_config_arch = `x64`;
         } else {
-          throw new Error(`Unsupported architecture: ${yellow(opts.arch)}`);
+          throw new Error(
+            `Unsupported architecture: ${chalk.yellow(opts.arch)}`
+          );
         }
         console.log(
-          `Set npm_config_arch to ${yellow(process.env.npm_config_arch)}`
+          `Set npm_config_arch to ${chalk.yellow(process.env.npm_config_arch)}`
         );
         $(`npm i --no-save --no-audit electron`);
         process.env.npm_config_arch = old_npm_config_arch;
@@ -255,7 +259,7 @@ function main(args) {
       throw new Error(`Unknown test runtime: '${testRuntime}'`);
     }
   } else {
-    info(`Skipping testing (enable with ${yellow("--test")})`);
+    info(`Skipping testing (enable with ${chalk.yellow("--test")})`);
   }
 
   if (opts.strip) {
@@ -270,9 +274,9 @@ function main(args) {
     let after = sizeof(artifactPath);
 
     console.log(
-      `Before: ${yellow(formatSize(before))} ` +
-        `After: ${yellow(formatSize(after))} ` +
-        `(${yellow(formatPercent((before - after) / before))} reduction)`
+      `Before: ${chalk.yellow(formatSize(before))} ` +
+        `After: ${chalk.yellow(formatSize(after))} ` +
+        `(${chalk.yellow(formatPercent((before - after) / before))} reduction)`
     );
   }
 

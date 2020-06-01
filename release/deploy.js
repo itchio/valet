@@ -1,7 +1,7 @@
 //@ts-check
 "use strict";
 
-const { $, $bash, header, yellow, green, blue, info } = require("./common");
+const { $, $bash, header, chalk, info } = require("./common");
 const {
   statSync,
   readdirSync,
@@ -19,16 +19,16 @@ function main() {
     );
     if (manifest.name !== expectedManifestName) {
       info(
-        `Expected manifest name ${yellow(expectedManifestName)}, got ${yellow(
-          manifest.name
-        )}`
+        `Expected manifest name ${chalk.yellow(
+          expectedManifestName
+        )}, got ${chalk.yellow(manifest.name)}`
       );
       throw new Error("Unexpected manifest name");
     }
   } catch (e) {
     throw new Error(
       `Script must be invoked as 'node release/deploy.js', from the root repository folder.\n` +
-        `Was invoked from ${yellow(process.cwd())}.`
+        `Was invoked from ${chalk.yellow(process.cwd())}.`
     );
   }
 
@@ -43,15 +43,17 @@ function main() {
   let matches = /v([0-9]+)\.([0-9]+)\.([0-9]+)/.exec(tag);
   if (!matches) {
     throw new Error(
-      `Could not parse version ${yellow(tag)} - is it missing the 'v' prefix?`
+      `Could not parse version ${chalk.yellow(
+        tag
+      )} - is it missing the 'v' prefix?`
     );
   }
   let [, major, minor, patch] = matches;
-  info(`Releasing version ${yellow(`${major}.${minor}.${patch}`)}`);
+  info(`Releasing version ${chalk.yellow(`${major}.${minor}.${patch}`)}`);
 
   rmdirSync("./artifacts/tmp.zip", { recursive: true });
   const targets = readdirSync("./artifacts");
-  info(`Will upload targets: ${targets.map(yellow).join(", ")}`);
+  info(`Will upload targets: ${targets.map(chalk.yellow).join(", ")}`);
 
   if (process.env.DRY_RUN) {
     info("Dry run, bailing out now");
@@ -67,9 +69,9 @@ function main() {
   let ghr = `./release-tools/github-release`;
   try {
     statSync(ghr);
-    info(`Using existing ${yellow(ghr)}...`);
+    info(`Using existing ${chalk.yellow(ghr)}...`);
   } catch (e) {
-    info(`Downloading ${yellow(ghr)}`);
+    info(`Downloading ${chalk.yellow(ghr)}`);
     $bash(`curl --location "${toolUrl}" | bunzip2 > ${ghr}`);
   }
   $bash(`chmod +x ${ghr}`);
@@ -79,7 +81,7 @@ function main() {
   process.env.GITHUB_REPO = "valet";
   if (!process.env.GITHUB_TOKEN) {
     throw new Error(
-      `${yellow(
+      `${chalk.yellow(
         "$GITHUB_TOKEN"
       )} is unset, are you running this script outside of CI?`
     );
