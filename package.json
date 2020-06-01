@@ -38,7 +38,7 @@
     "typescript": "^3.9.3"
   },
   "dependencies": {
-    "@itchio/bob": "^1.2.0",
+    "@itchio/bob": "^2.0.0",
     "extract-zip": "^2.0.0"
   }
 }
