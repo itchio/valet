@@ -1,7 +1,7 @@
 //@ts-check
 "use strict";
 
-const { $bash, info, header, $ } = require("@itchio/bob");
+const { $, info, header } = require("@itchio/bob");
 
 /**
  * @param {string[]} args
@@ -16,8 +16,8 @@ async function main(args) {
   let oldCwd = process.cwd();
   try {
     process.chdir("./libbutler");
-    $bash(`go build github.com/itchio/butler/butlerd/generous`);
-    $bash(`./generous ts --support-path "./support" ../ts/messages.ts`);
+    $(`go build github.com/itchio/butler/butlerd/generous`);
+    $(`./generous ts --support-path "./support" ../ts/messages.ts`);
   } catch (e) {
     throw e;
   } finally {

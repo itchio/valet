@@ -1,7 +1,7 @@
 //@ts-check
 "use strict";
 
-const { $, $bash, header, chalk, info } = require("@itchio/bob");
+const { $, header, chalk, info } = require("@itchio/bob");
 const {
   statSync,
   readdirSync,
@@ -72,10 +72,10 @@ function main() {
     info(`Using existing ${chalk.yellow(ghr)}...`);
   } catch (e) {
     info(`Downloading ${chalk.yellow(ghr)}`);
-    $bash(`curl --location "${toolUrl}" | bunzip2 > ${ghr}`);
+    $(`curl --location "${toolUrl}" | bunzip2 > ${ghr}`);
   }
-  $bash(`chmod +x ${ghr}`);
-  $bash(`${ghr} --version`);
+  $(`chmod +x ${ghr}`);
+  $(`${ghr} --version`);
 
   process.env.GITHUB_USER = "itchio";
   process.env.GITHUB_REPO = "valet";
@@ -88,20 +88,20 @@ function main() {
   }
 
   try {
-    $bash(`${ghr} delete --tag "${tag}"`);
+    $(`${ghr} delete --tag "${tag}"`);
     info(`Probably replacing release`);
   } catch (e) {
     info(`Probably not replacing release`);
   }
-  $bash(`${ghr} release --tag "${tag}"`);
+  $(`${ghr} release --tag "${tag}"`);
 
   for (const target of targets) {
     let label = `Native addon for ${target}`;
-    $bash(
+    $(
       `(cd ./artifacts; zip --display-dots --recurse-paths ./tmp.zip ./${target})`
     );
     // note: github-release says it can upload from stdin, but it can't
-    $bash(
+    $(
       [
         `${ghr} upload --tag "${tag}" --file "./artifacts/tmp.zip" --replace`,
         `--label "${label}" --name "${target}.zip"`,
