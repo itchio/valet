@@ -41,7 +41,11 @@ async function main(args) {
     } else if (arg === "--os") {
       i++;
       let v = args[i];
-      opts.os = v;
+      if (v === "windows" || v === "darwin" || v === "linux") {
+        opts.os = v;
+      } else {
+        throw new Error(`Unsupported os ${chalk.yellow(v)}`);
+      }
       opts.userSpecifiedOS = true;
     } else if (arg === "--force") {
       opts.force = true;

@@ -73,7 +73,7 @@ function main(args) {
 
   /**
    * @type {{
-   *   os?: string;
+   *   os?: "linux" | "windows" | "darwin";
    *   arch?: string;
    *   test: boolean;
    *   strip: boolean;
@@ -105,7 +105,15 @@ function main(args) {
       if (k === "os" || k === "arch" || k === "test-runtime" || k === "rust") {
         i++;
         let v = args[i];
-        opts[k] = v;
+        if (k === "os") {
+          if (v === "linux" || v === "windows" || v === "darwin") {
+            opts[k] = v;
+          } else {
+            throw new Error(`Unsupported OS ${chalk.yellow(v)}`);
+          }
+        } else {
+          opts[k] = v;
+        }
       } else if (k == "test") {
         opts.test = true;
       } else if (k == "strip") {
