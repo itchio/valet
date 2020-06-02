@@ -47,4 +47,5 @@ deploy:
   only: ["tags"]
   tags: ["docker-capsule-64"]
   script:
+    - npm ci --no-audit
     - npm run deploy
