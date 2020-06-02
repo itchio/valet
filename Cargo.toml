@@ -1,6 +1,6 @@
 [package]
 name = "valet"
-version = "0.11.3"
+version = "0.11.4"
 authors = ["Amos Wenger <amoswenger@gmail.com>"]
 edition = "2018"
 
