@@ -204,7 +204,7 @@ function main(args) {
   header("Gathering stats");
   let outPath = `./target/release/${osInfo.libName}`;
   info(`Artifact is ${chalk.yellow(formatSize(sizeof(outPath)))}`);
-  let artifactDir = `./artifacts/${opts.arch}-${opts.os}`;
+  let artifactDir = `./artifacts/${opts.os}-${opts.arch}`;
   mkdirSync(artifactDir, { recursive: true });
   let artifactPath = `${artifactDir}/index.node`;
   let artifactContents = readFileSync(outPath, { encoding: null });

@@ -77,7 +77,7 @@ async function main(args) {
     debug(`Using detected arch ${chalk.yellow(opts.arch)}`);
   }
 
-  let platform = `${opts.arch}-${opts.os}`;
+  let platform = `${opts.os}-${opts.arch}`;
   console.log(`valet ${chalk.yellow(version)} on ${chalk.yellow(platform)}`);
 
   let bindingsPath = `./artifacts/${platform}/index.node`;
