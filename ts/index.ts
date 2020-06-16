@@ -57,7 +57,7 @@ function getArch(): string {
   }
 }
 
-let platform = `${getArch()}-${getOS()}`;
+let platform = `${getOS()}-${getArch()}`;
 let basePath = `./artifacts`;
 {
   let envKey = "VALET_BINDINGS_BASE";
