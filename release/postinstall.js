@@ -20,6 +20,15 @@ const { createWriteStream, rmdirSync, mkdirSync, existsSync } = require("fs");
 async function main(args) {
   let start = Date.now();
 
+  /**
+   * @type {{
+   *   os: "windows" | "linux" | "darwin",
+   *   arch: "i686" | "x86_64",
+   *   force: boolean,
+   *   userSpecifiedOS: boolean,
+   *   userSpecifiedArch: boolean,
+   * }}
+   */
   let opts = {
     os: detectOS(),
     arch: process.arch === "ia32" ? "i686" : "x86_64",
@@ -27,6 +36,34 @@ async function main(args) {
     userSpecifiedOS: false,
     userSpecifiedArch: false,
   };
+
+  {
+    let envOS = process.env.VALET_TARGET_OS;
+    if (envOS) {
+      if (envOS == "windows" || envOS == "linux" || envOS == "darwin") {
+        opts.os = envOS;
+        opts.userSpecifiedOS = true;
+      } else {
+        throw new Error(
+          "Invalid VALET_TARGET_OS=${chalk.yellow(envOS)} specified"
+        );
+      }
+    }
+  }
+
+  {
+    let envArch = process.env.VALET_TARGET_ARCH;
+    if (envArch) {
+      if (envArch == "i686" || envArch == "x86_64") {
+        opts.arch = envArch;
+        opts.userSpecifiedArch = true;
+      } else {
+        throw new Error(
+          "Invalid VALET_TARGET_ARCH=${chalk.yellow(envArch)} specified"
+        );
+      }
+    }
+  }
 
   for (let i = 0; i < args.length; i++) {
     let arg = args[i];
