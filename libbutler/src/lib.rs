@@ -23,6 +23,14 @@ extern "C" {
     fn butler_buffer_free(buffer: &mut Buffer);
 }
 
+#[cfg(target_os = "windows")]
+#[link(name = "pthread", kind = "static")]
+#[link(name = "gcc")]
+#[link(name = "msvcrt")]
+#[link(name = "kernel32")]
+#[link(name = "mingw32")]
+extern "C" {}
+
 #[cfg(target_os = "macos")]
 #[link(name = "Cocoa", kind = "framework")]
 #[link(name = "Security", kind = "framework")]
