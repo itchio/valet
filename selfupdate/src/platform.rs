@@ -141,7 +141,7 @@ pub fn get_channel_name(settings: &Settings) -> Result<String, Error> {
     let suffix = if settings.is_canary { "-head" } else { "" };
     let runtime = current_runtime()?;
     let channel = format!(
-        "{os}{arch}{suffix}",
+        "{os}-{arch}{suffix}",
         os = runtime.os.to_go(),
         arch = runtime.arch.to_go(),
         suffix = suffix,

@@ -42,7 +42,8 @@ pub async fn check(settings: &Settings) -> Result<String, Error> {
     let channel_url = format!("{}/itch-setup/{}", BROTH_BASE_URL, channel);
 
     let client = Arc::new(Client::new()?);
-    let req = client.request(Method::GET, &channel_url).build()?;
+    let version_url = format!("{}/versions", channel_url);
+    let req = client.request(Method::GET, &version_url).build()?;
 
     let versions_list: VersionsList = client
         .clone()
