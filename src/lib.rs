@@ -2,6 +2,7 @@ use libbutler::{Buffer, Conn};
 use log::*;
 use napi::*;
 use std::{error::Error, fmt};
+use tokio::runtime::Runtime;
 
 include!("../generated/version.rs");
 
@@ -41,6 +42,9 @@ struct TesterState {
 unsafe extern "C" fn init(env: RawEnv, _exports: RawValue) -> RawValue {
     simple_logger::init_by_env();
 
+    let runtime = Box::leak(Box::new(Runtime::new().unwrap()));
+    let runtime = runtime.handle();
+
     let env = JsEnv::new(env);
     env.throwable::<JsError>(&|| {
         let valet = env.object()?;
@@ -73,6 +77,31 @@ unsafe extern "C" fn init(env: RawEnv, _exports: RawValue) -> RawValue {
                     libbutler::initialize(&mut opts)?;
                     Ok(())
                 }
+            })?;
+
+            cb.method_0("selfUpdateCheck", move |env, _this| {
+                log::error!("Is this thing on?");
+
+                let (deferred, promise) = env.deferred()?;
+                log::info!("Spawning self update check...");
+                runtime.spawn(async move {
+                    log::info!("Running self update check...");
+                    match selfupdate::check().await {
+                        Ok(()) => {
+                            log::info!("Successful!");
+                            deferred.resolve(()).unwrap();
+                        }
+                        Err(e) => {
+                            log::info!("Failed!");
+                            // TODO: error object
+                            deferred
+                                .reject(format!("self-update error: {}", e))
+                                .unwrap();
+                        }
+                    }
+                });
+                log::info!("Returning promise...");
+                Ok(promise)
             })?;
 
             cb.method_0("newConn", |env, _this| {

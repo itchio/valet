@@ -1,3 +1,4 @@
+pub use nj_sys;
 use nj_sys::*;
 use std::{
     error::Error,
@@ -409,6 +410,10 @@ pub struct JsDeferred {
     deferred: RawDeferred,
     ts: RawThreadsafeFunction,
 }
+
+// TODO: review this carefully. But if this can't be sent,
+// what's the point of
+unsafe impl Send for JsDeferred {}
 
 impl JsDeferred {
     pub fn resolve<V>(self, resolution: V) -> JsResult<()>

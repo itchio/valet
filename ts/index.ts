@@ -29,6 +29,7 @@ export interface ValetStatic {
   newConn(): Conn;
   goPanic(): void;
   rustPanic(): void;
+  selfUpdateCheck(): Promise<void>;
 }
 
 function getOS(): string {
