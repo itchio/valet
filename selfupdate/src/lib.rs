@@ -1,4 +1,7 @@
+mod platform;
+
 use serde::Deserialize;
+use std::path::PathBuf;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -20,8 +23,15 @@ struct Country {
     network: Option<String>,
 }
 
-pub async fn check() -> Result<String, Error> {
+pub struct Settings {
+    pub components_dir: PathBuf,
+    pub is_canary: bool,
+}
+
+pub async fn check(settings: &Settings) -> Result<String, Error> {
     log::info!("Checking for update...");
+
+    let channel = platform::get_channel();
 
     let resp: Country = reqwest::get("https://itch.io/country")
         .await?
