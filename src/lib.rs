@@ -87,16 +87,14 @@ unsafe extern "C" fn init(env: RawEnv, _exports: RawValue) -> RawValue {
                 runtime.spawn(async move {
                     log::info!("Running self update check...");
                     match selfupdate::check().await {
-                        Ok(()) => {
+                        Ok(res) => {
                             log::info!("Successful!");
-                            deferred.resolve(()).unwrap();
+                            deferred.resolve(res).unwrap();
                         }
                         Err(e) => {
                             log::info!("Failed!");
                             // TODO: error object
-                            deferred
-                                .reject(format!("self-update error: {}", e))
-                                .unwrap();
+                            deferred.reject(format!("Rust error: {}", e)).unwrap();
                         }
                     }
                 });
