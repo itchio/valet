@@ -5,6 +5,7 @@ use once_cell::sync::Lazy;
 use std::process::Command;
 
 trait ToGo {
+    /// Returns the equivalent "golang ecosystem" string
     fn to_go(&self) -> &str;
 }
 
@@ -15,10 +16,29 @@ pub enum OS {
     MacOS,
 }
 
+impl ToGo for OS {
+    fn to_go(&self) -> &str {
+        match self {
+            OS::Windows => "windows",
+            OS::Linux => "linux",
+            OS::MacOS => "darwin",
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Arch {
     X86,
     X86_64,
+}
+
+impl ToGo for Arch {
+    fn to_go(&self) -> &str {
+        match self {
+            Arch::X86 => "386",
+            Arch::X86_64 => "amd64",
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -117,6 +137,14 @@ pub fn current_runtime() -> Result<Runtime, Error> {
     })
 }
 
-pub fn get_channel() -> String {
-    todo!()
+pub fn get_channel_name(settings: &Settings) -> Result<String, Error> {
+    let suffix = if settings.is_canary { "-head" } else { "" };
+    let runtime = current_runtime()?;
+    let channel = format!(
+        "{os}{arch}{suffix}",
+        os = runtime.os.to_go(),
+        arch = runtime.arch.to_go(),
+        suffix = suffix,
+    );
+    Ok(channel)
 }

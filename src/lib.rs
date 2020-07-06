@@ -1,7 +1,7 @@
 use libbutler::{Buffer, Conn};
 use log::*;
 use napi::*;
-use std::{error::Error, fmt};
+use std::{error::Error, fmt, path::PathBuf};
 use tokio::runtime::Runtime;
 
 include!("../generated/version.rs");
@@ -79,14 +79,19 @@ unsafe extern "C" fn init(env: RawEnv, _exports: RawValue) -> RawValue {
                 }
             })?;
 
-            cb.method_0("selfUpdateCheck", move |env, _this| {
-                log::error!("Is this thing on?");
+            cb.method_1("selfUpdateCheck", move |env, _this, opts: JsValue| {
+                let is_canary: bool = opts.get_property("isCanary")?;
+                let components_dir: String = opts.get_property("componentsDir")?;
+                let settings = selfupdate::Settings {
+                    components_dir: PathBuf::from(components_dir),
+                    is_canary,
+                };
 
                 let (deferred, promise) = env.deferred()?;
                 log::info!("Spawning self update check...");
                 runtime.spawn(async move {
                     log::info!("Running self update check...");
-                    match selfupdate::check().await {
+                    match selfupdate::check(&settings).await {
                         Ok(res) => {
                             log::info!("Successful!");
                             deferred.resolve(res).unwrap();

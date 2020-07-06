@@ -1,7 +1,10 @@
+mod client;
 mod platform;
 
+use client::Client;
+use reqwest::Method;
 use serde::Deserialize;
-use std::path::PathBuf;
+use std::{path::PathBuf, sync::Arc};
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -9,6 +12,8 @@ pub enum Error {
     DummyError,
     #[error("request error: {0}")]
     RequestError(String),
+    #[error("platform error: {0}")]
+    PlatformError(#[from] platform::Error),
 }
 
 impl From<reqwest::Error> for Error {
@@ -17,32 +22,38 @@ impl From<reqwest::Error> for Error {
     }
 }
 
-#[derive(Deserialize, Debug)]
-struct Country {
-    country: String,
-    network: Option<String>,
-}
-
 pub struct Settings {
     pub components_dir: PathBuf,
     pub is_canary: bool,
 }
 
+const BROTH_BASE_URL: &str = "https://broth.itch.ovh";
+
+#[derive(Deserialize, Debug)]
+struct VersionsList {
+    versions: Vec<String>,
+}
+
 pub async fn check(settings: &Settings) -> Result<String, Error> {
     log::info!("Checking for update...");
 
-    let channel = platform::get_channel();
+    let channel = platform::get_channel_name(settings)?;
+    log::info!("For channel {}", channel);
+    let channel_url = format!("{}/itch-setup/{}", BROTH_BASE_URL, channel);
 
-    let resp: Country = reqwest::get("https://itch.io/country")
-        .await?
+    let client = Arc::new(Client::new()?);
+    let req = client.request(Method::GET, &channel_url).build()?;
+
+    let versions_list: VersionsList = client
+        .clone()
+        .execute(req)
+        .await
+        .map_err(|e| Error::RequestError(e.to_string()))?
         .json()
         .await?;
 
-    log::info!("Dummy update check complete");
-    if rand::random() {
-        log::warn!("Failing for fun");
-        return Err(Error::DummyError);
-    }
+    let latest_version = versions_list.versions.first();
 
-    Ok(format!("{:#?}", resp))
+    let res = format!("latest version of itch-setup is {:?}", latest_version);
+    Ok(res)
 }

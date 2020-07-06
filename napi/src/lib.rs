@@ -34,6 +34,12 @@ impl FromNapi for String {
     }
 }
 
+impl FromNapi for bool {
+    fn from_napi(env: &JsEnv, value: RawValue) -> JsResult<Self> {
+        env.get_bool(value)
+    }
+}
+
 impl FromNapi for JsValue {
     fn from_napi(env: &JsEnv, value: RawValue) -> JsResult<Self> {
         Ok(JsValue {
@@ -545,6 +551,12 @@ impl JsEnv {
     pub fn get_int64(&self, value: RawValue) -> JsResult<i64> {
         let mut res = 0;
         unsafe { napi_get_value_int64(self.0, value, &mut res) }.check()?;
+        Ok(res)
+    }
+
+    pub fn get_bool(&self, value: RawValue) -> JsResult<bool> {
+        let mut res = false;
+        unsafe { napi_get_value_bool(self.0, value, &mut res) }.check()?;
         Ok(res)
     }
 

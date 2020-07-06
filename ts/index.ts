@@ -29,7 +29,10 @@ export interface ValetStatic {
   newConn(): Conn;
   goPanic(): void;
   rustPanic(): void;
-  selfUpdateCheck(): Promise<void>;
+  selfUpdateCheck(opts: {
+    componentsDir: string,
+    isCanary: boolean,
+  }): Promise<void>;
 }
 
 function getOS(): string {
