@@ -1,2 +1,2 @@
 [build]
-rustflags = ["-C", "link-arg=-Bsymbolic"]
+rustflags = ["-C", "link-arg=-Bsymbolic", "-Z", "tls-model=global-dynamic"]

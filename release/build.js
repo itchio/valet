@@ -199,7 +199,7 @@ function main(args) {
   $(`rustup toolchain install ${toolchain}`);
 
   header("Compiling native module");
-  $(`cargo +${toolchain} build --release`);
+  $(`cargo +${toolchain} -vv build --release`);
 
   header("Gathering stats");
   let outPath = `./target/release/${osInfo.libName}`;

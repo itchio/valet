@@ -6,6 +6,7 @@ edition = "2018"
 
 [profile.release]
 debug = true
+lto = "thin"
 
 [lib]
 crate-type = ["cdylib"]
