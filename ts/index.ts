@@ -61,6 +61,13 @@ function getArch(): string {
   }
 }
 
+(function () {
+  //@ts-ignore
+  if (typeof process !== "undefined" && process.type === "renderer") {
+    throw new Error("Requiring valet from the renderer process is not supported right now.");
+  }
+})();
+
 let platform = `${getOS()}-${getArch()}`;
 let basePath = `./artifacts`;
 {
