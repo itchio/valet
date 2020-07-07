@@ -1,6 +1,7 @@
-use futures_retry::{FutureRetry, RetryPolicy};
+use backoff::ExponentialBackoff;
+use backoff_futures::BackoffExt;
 use reqwest::{IntoUrl, Method, Request, RequestBuilder};
-use std::{fmt, sync::Arc, time::Duration};
+use std::{fmt, time::Duration};
 
 pub struct Client {
     pub inner: reqwest::Client,
@@ -30,24 +31,43 @@ impl Client {
         self.inner.request(method, url)
     }
 
-    pub async fn execute(
-        self: Arc<Self>,
-        req: Request,
-    ) -> Result<reqwest::Response, reqwest::Error> {
-        let exec = move || self.inner.execute(req.try_clone().unwrap());
+    pub async fn execute(&self, req: Request) -> Result<reqwest::Response, reqwest::Error> {
+        let exec = || async {
+            self.inner
+                .execute(req.try_clone().unwrap())
+                .await
+                .and_then(|r| r.error_for_status())
+                .map_err(|e| {
+                    let transient = if e.is_status() {
+                        e.status().unwrap().is_server_error()
+                    } else if e.is_timeout() {
+                        true
+                    } else {
+                        false
+                    };
+                    if transient {
+                        backoff::Error::Transient(e)
+                    } else {
+                        backoff::Error::Permanent(e)
+                    }
+                })
+        };
 
-        let mut tries: i32 = 0;
-        let (res, _) = FutureRetry::new(exec, |e: reqwest::Error| {
-            if e.is_builder() || e.is_redirect() {
-                if tries > 1 {
-                    tries -= 1;
-                    return RetryPolicy::WaitRetry(Duration::from_millis(200));
-                }
-            }
-            return RetryPolicy::ForwardError(e);
-        })
-        .await
-        .map_err(|(e, _attempts)| e)?;
-        Ok(res)
+        let mut backoff = ExponentialBackoff::default();
+        exec.with_backoff(&mut backoff)
+            .await
+            .map_err(FromBackoff::from_backoff)
+    }
+}
+
+trait FromBackoff<E> {
+    fn from_backoff(self) -> E;
+}
+
+impl<E> FromBackoff<E> for backoff::Error<E> {
+    fn from_backoff(self) -> E {
+        match self {
+            Self::Transient(e) | Self::Permanent(e) => e,
+        }
     }
 }

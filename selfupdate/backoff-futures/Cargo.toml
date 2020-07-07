@@ -1,0 +1,21 @@
+[package]
+name = "backoff-futures"
+description = "A retry and backoff mechanism for `std::future::Future`"
+version = "0.3.0"
+
+authors = ["Jakub Wieczorek <jakub.adam.wieczorek@gmail.com>"]
+keywords = ["backoff", "exponential", "futures"]
+license = "MIT"
+repository = "https://github.com/jakubadamw/backoff-futures"
+
+edition = "2018"
+
+[dependencies]
+async-trait = "0.1"
+backoff = "0.1"
+tokio = { version = "0.2.1", features = ["time"] }
+
+[dev-dependencies]
+futures = "0.3"
+isahc = "0.9"
+matches = "0.1"
