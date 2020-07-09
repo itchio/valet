@@ -6,65 +6,24 @@
 //! the same future could just as well succeed (e.g. the HTTP 503 Service Unavailable error),
 //! and errors that are considered *permanent*, where no future attempts are presumed to have
 //! a chance to succeed (e.g. the HTTP 404 Not Found error).
-//!
-//! The extension trait integrates with the `backoff` crate and expects a [`backoff::backoff::Backoff`]
-//! value to describe the various properties of the retry & backoff mechanism to be used.
-//!
-//! ```rust
-//! fn isahc_error_to_backoff(err: isahc::Error) -> backoff::Error<isahc::Error> {
-//!     match err {
-//!         isahc::Error::Aborted | isahc::Error::Io(_) | isahc::Error::Timeout =>
-//!             backoff::Error::Transient(err),
-//!         _ =>
-//!             backoff::Error::Permanent(err)
-//!     }
-//! }
-//!
-//! async fn get_example_contents() -> Result<String, backoff::Error<isahc::Error>> {
-//!     use isahc::ResponseExt;
-//!
-//!     let mut response = isahc::get_async("https://example.org")
-//!         .await
-//!         .map_err(isahc_error_to_backoff)?;
-//!
-//!     response
-//!         .text_async()
-//!         .await
-//!         .map_err(|err: std::io::Error| backoff::Error::Transient(isahc::Error::Io(err)))
-//! }
-//!
-//! async fn get_example_contents_with_retry() -> Result<String, isahc::Error> {
-//!     use backoff_futures::BackoffExt;
-//!
-//!     let mut backoff = backoff::ExponentialBackoff::default();
-//!     get_example_contents.with_backoff(&mut backoff)
-//!         .await
-//!         .map_err(|err| match err {
-//!             backoff::Error::Transient(err) | backoff::Error::Permanent(err) => err
-//!         })
-//! }
-//! ```
-//!
-//! See [`BackoffExt::with_backoff`] for more details.
 
 #![allow(clippy::type_repetition_in_bounds)]
 
-use backoff::backoff::Backoff;
-use backoff::Error;
-use std::future::Future;
-use std::time::Duration;
+use crate::{backoff::Backoff, Error};
+use futures::future::FutureExt;
+use std::{future::Future, pin::Pin, time::Duration};
 
-struct BackoffFutureBuilder<'b, B, F, Fut, T, E>
+struct BackoffFutureBuilder<B, F, Fut, T, E>
 where
     B: Backoff,
     F: FnMut() -> Fut,
     Fut: Future<Output = Result<T, Error<E>>>,
 {
-    backoff: &'b mut B,
+    backoff: B,
     f: F,
 }
 
-impl<'b, B, F, Fut, T, E> BackoffFutureBuilder<'b, B, F, Fut, T, E>
+impl<B, F, Fut, T, E> BackoffFutureBuilder<B, F, Fut, T, E>
 where
     B: Backoff,
     F: FnMut() -> Fut,
@@ -78,7 +37,7 @@ where
                 Err(err @ Error::Transient(_)) => {
                     if let Some(backoff_duration) = self.backoff.next_backoff() {
                         notify(&err, backoff_duration);
-                        tokio::time::delay_for(backoff_duration).await
+                        futures_timer::Delay::new(backoff_duration).await
                     } else {
                         return Err(err);
                     }
@@ -88,7 +47,6 @@ where
     }
 }
 
-#[async_trait::async_trait]
 pub trait BackoffExt<T, E, Fut, F> {
     /// Returns a future that, when polled, will first ask `self` for a new future (with an output
     /// type `Result<T, backoff::Error<_>>` to produce the expected result.
@@ -102,53 +60,64 @@ pub trait BackoffExt<T, E, Fut, F> {
     /// result in a retry attempt, most likely with a delay.
     ///
     /// If the underlying future is ready with an [`std::result::Result::Ok`] value, it will be returned immediately.
-    async fn with_backoff<B>(self, backoff: &mut B) -> Result<T, Error<E>>
+    fn with_backoff<'b, B>(
+        self,
+        backoff: B,
+    ) -> Pin<Box<dyn Future<Output = Result<T, Error<E>>> + 'b + Send>>
     where
-        B: Backoff + Send,
-        T: 'async_trait,
-        E: 'async_trait,
-        Fut: 'async_trait;
+        B: Backoff + 'b + Send,
+        F: 'b + Send;
 
     /// Same as [`BackoffExt::with_backoff`] but takes an extra `notify` closure that will be called every time
     /// a new backoff is employed on transient errors. The closure takes the new delay duration as an argument.
-    async fn with_backoff_notify<B, N>(self, backoff: &mut B, notify: N) -> Result<T, Error<E>>
+    fn with_backoff_notify<'b, B, N>(
+        self,
+        backoff: B,
+        notify: N,
+    ) -> Pin<Box<dyn Future<Output = Result<T, Error<E>>> + 'b + Send>>
     where
-        B: Backoff + Send,
-        N: FnMut(&Error<E>, Duration) + Send,
-        T: 'async_trait,
-        E: 'async_trait,
-        Fut: 'async_trait;
+        B: Backoff + 'b + Send,
+        N: FnMut(&Error<E>, Duration) + 'b + Send,
+        F: 'b + Send;
 }
 
-#[async_trait::async_trait]
 impl<T, E, Fut, F> BackoffExt<T, E, Fut, F> for F
 where
     F: (FnMut() -> Fut) + Send,
     T: Send,
     E: Send,
-    Fut: Future<Output = Result<T, backoff::Error<E>>> + Send,
+    Fut: Future<Output = Result<T, crate::Error<E>>> + Send,
 {
-    async fn with_backoff<B>(self, backoff: &mut B) -> Result<T, Error<E>>
+    fn with_backoff<'b, B>(
+        self,
+        backoff: B,
+    ) -> Pin<Box<dyn Future<Output = Result<T, Error<E>>> + Send + 'b>>
     where
-        B: Backoff + Send,
-        T: 'async_trait,
-        E: 'async_trait,
-        Fut: 'async_trait,
+        B: Backoff + 'b + Send,
+        F: 'b,
     {
-        let backoff_struct = BackoffFutureBuilder { backoff, f: self };
-        backoff_struct.fut(|_, _| {}).await
+        (async move {
+            let backoff_struct = BackoffFutureBuilder { backoff, f: self };
+            backoff_struct.fut(|_, _| {}).await
+        })
+        .boxed()
     }
 
-    async fn with_backoff_notify<B, N>(self, backoff: &mut B, notify: N) -> Result<T, Error<E>>
+    fn with_backoff_notify<'b, B, N>(
+        self,
+        backoff: B,
+        notify: N,
+    ) -> Pin<Box<dyn Future<Output = Result<T, Error<E>>> + 'b + Send>>
     where
-        B: Backoff + Send,
-        N: FnMut(&Error<E>, Duration) + Send,
-        T: 'async_trait,
-        E: 'async_trait,
-        Fut: 'async_trait,
+        B: Backoff + 'b + Send,
+        N: FnMut(&Error<E>, Duration) + 'b + Send,
+        F: 'b,
     {
-        let backoff_struct = BackoffFutureBuilder { backoff, f: self };
-        backoff_struct.fut(notify).await
+        (async move {
+            let backoff_struct = BackoffFutureBuilder { backoff, f: self };
+            backoff_struct.fut(notify).await
+        })
+        .boxed()
     }
 }
 
@@ -158,14 +127,27 @@ mod tests {
     use futures::Future;
 
     #[test]
-    fn test_when_future_succeeds() {
-        fn do_work() -> impl Future<Output = Result<u32, backoff::Error<()>>> {
+    fn test_future_is_send() {
+        fn do_work() -> impl Future<Output = Result<u32, crate::Error<()>>> {
             futures::future::ready(Ok(123))
         }
 
-        let mut backoff = backoff::ExponentialBackoff::default();
-        let result: Result<u32, backoff::Error<()>> =
-            futures::executor::block_on(do_work.with_backoff(&mut backoff));
+        let runtime = tokio::runtime::Runtime::new().unwrap();
+        runtime.spawn(async move {
+            let backoff = crate::ExponentialBackoff::default();
+            do_work.with_backoff(backoff).await
+        });
+    }
+
+    #[test]
+    fn test_when_future_succeeds() {
+        fn do_work() -> impl Future<Output = Result<u32, crate::Error<()>>> {
+            futures::future::ready(Ok(123))
+        }
+
+        let backoff = crate::ExponentialBackoff::default();
+        let result: Result<u32, crate::Error<()>> =
+            futures::executor::block_on(do_work.with_backoff(backoff));
         assert_eq!(result.ok(), Some(123));
     }
 
@@ -173,9 +155,9 @@ mod tests {
     fn test_with_closure_when_future_succeeds() {
         let do_work = || futures::future::lazy(|_| Ok(123));
 
-        let mut backoff = backoff::ExponentialBackoff::default();
-        let result: Result<u32, backoff::Error<()>> =
-            futures::executor::block_on(do_work.with_backoff(&mut backoff));
+        let backoff = crate::ExponentialBackoff::default();
+        let result: Result<u32, crate::Error<()>> =
+            futures::executor::block_on(do_work.with_backoff(backoff));
         assert_eq!(result.ok(), Some(123));
     }
 
@@ -184,25 +166,25 @@ mod tests {
         use matches::assert_matches;
 
         let do_work = || {
-            let result = Err(backoff::Error::Permanent(()));
+            let result = Err(crate::Error::Permanent(()));
             futures::future::ready(result)
         };
 
-        let mut backoff = backoff::ExponentialBackoff::default();
-        let result: Result<u32, backoff::Error<()>> =
-            futures::executor::block_on(do_work.with_backoff(&mut backoff));
-        assert_matches!(result.err(), Some(backoff::Error::Permanent(_)));
+        let backoff = crate::ExponentialBackoff::default();
+        let result: Result<u32, crate::Error<()>> =
+            futures::executor::block_on(do_work.with_backoff(backoff));
+        assert_matches!(result.err(), Some(crate::Error::Permanent(_)));
     }
 
     #[test]
     fn test_with_async_fn_when_future_succeeds() {
-        async fn do_work() -> Result<u32, backoff::Error<()>> {
+        async fn do_work() -> Result<u32, crate::Error<()>> {
             Ok(123)
         }
 
-        let mut backoff = backoff::ExponentialBackoff::default();
-        let result: Result<u32, backoff::Error<()>> =
-            futures::executor::block_on(do_work.with_backoff(&mut backoff));
+        let backoff = crate::ExponentialBackoff::default();
+        let result: Result<u32, crate::Error<()>> =
+            futures::executor::block_on(do_work.with_backoff(backoff));
         assert_eq!(result.ok(), Some(123));
     }
 
@@ -213,18 +195,18 @@ mod tests {
 
         use std::time::Duration;
 
-        async fn do_work() -> Result<u32, backoff::Error<()>> {
+        async fn do_work() -> Result<u32, crate::Error<()>> {
             unsafe {
                 CALL_COUNTER += 1;
                 if CALL_COUNTER != CALLS_TO_SUCCESS {
-                    Err(backoff::Error::Transient(()))
+                    Err(crate::Error::Transient(()))
                 } else {
                     Ok(123)
                 }
             }
         };
 
-        let mut backoff = backoff::ExponentialBackoff::default();
+        let mut backoff = crate::ExponentialBackoff::default();
         backoff.current_interval = Duration::from_millis(1);
         backoff.initial_interval = Duration::from_millis(1);
 
@@ -232,7 +214,7 @@ mod tests {
 
         let mut runtime = tokio::runtime::Runtime::new().expect("tokio runtime creation");
 
-        let result = runtime.block_on(do_work.with_backoff_notify(&mut backoff, |e, d| {
+        let result = runtime.block_on(do_work.with_backoff_notify(backoff, |e, d| {
             notify_counter += 1;
             println!("Error {:?}, waiting for: {}", e, d.as_millis());
         }));

@@ -1,5 +1,4 @@
-use backoff::ExponentialBackoff;
-use backoff_futures::BackoffExt;
+use backoff::{futures::BackoffExt, ExponentialBackoff};
 use reqwest::{IntoUrl, Method, Request, RequestBuilder};
 use std::{fmt, time::Duration};
 
@@ -53,8 +52,8 @@ impl Client {
                 })
         };
 
-        let mut backoff = ExponentialBackoff::default();
-        exec.with_backoff(&mut backoff)
+        let backoff = ExponentialBackoff::default();
+        exec.with_backoff(backoff)
             .await
             .map_err(FromBackoff::from_backoff)
     }

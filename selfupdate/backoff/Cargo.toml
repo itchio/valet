@@ -1,0 +1,33 @@
+[package]
+name = "backoff"
+version = "0.1.7-alpha.0"
+authors = ["Tibor Benke <ihrwein@gmail.com>"]
+license = "MIT/Apache-2.0"
+readme = "README.md"
+repository = "https://github.com/ihrwein/backoff"
+homepage = "https://github.com/ihrwein/backoff"
+documentation = "https://docs.rs/backoff"
+categories = ["network-programming"]
+description = """
+Retry operations with exponential backoff policy.
+"""
+edition = "2018"
+
+[badges]
+travis-ci = { repository = "ihrwein/backoff" }
+
+[dependencies]
+instant = "0.1"
+rand = "0.7"
+futures = "0.3.5"
+futures-timer = "3.0.2"
+
+[dev-dependencies]
+reqwest = { version = "0.10.1", features = ["json", "blocking"] }
+tokio = "0.2.21"
+matches = "0.1.8"
+
+[features]
+default = []
+stdweb = ["instant/stdweb", "rand/stdweb"]
+wasm-bindgen = ["instant/wasm-bindgen", "rand/wasm-bindgen"]
