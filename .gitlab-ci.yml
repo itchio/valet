@@ -8,6 +8,9 @@ build:linux:
   script:
     - npm ci --no-audit
     - xvfb-run -- npm run build -- --os linux --arch x86_64 --test-runtime electron
+  cache:
+    key: "$CI_JOB_NAME-$CI_COMMIT_REF_SLUG"
+    paths: ["target"]
   artifacts:
     expire_in: 1 week
     paths: ["artifacts"]
@@ -18,6 +21,9 @@ build:darwin:
   script:
     - npm ci --no-audit
     - npm run build -- --os darwin --arch x86_64 --test-runtime electron
+  cache:
+    key: "$CI_JOB_NAME-$CI_COMMIT_REF_SLUG"
+    paths: ["target"]
   artifacts:
     expire_in: 1 week
     paths: ["artifacts"]
@@ -28,6 +34,9 @@ build:windows:i686:
   script:
     - npm ci --no-audit
     - npm run build -- --os windows --arch i686 --test-runtime electron
+  cache:
+    key: "$CI_JOB_NAME-$CI_COMMIT_REF_SLUG"
+    paths: ["target"]
   artifacts:
     expire_in: 1 week
     paths: ["artifacts"]
@@ -38,6 +47,9 @@ build:windows:x86_64:
   script:
     - npm ci --no-audit
     - npm run build -- --os windows --arch x86_64 --test-runtime electron
+  cache:
+    key: "$CI_JOB_NAME-$CI_COMMIT_REF_SLUG"
+    paths: ["target"]
   artifacts:
     expire_in: 1 week
     paths: ["artifacts"]

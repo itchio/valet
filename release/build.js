@@ -198,6 +198,12 @@ function main(args) {
 
   $(`rustup toolchain install ${toolchain}`);
 
+  if (process.env.CI) {
+    info(`In CI, enabling cargo-sweep`);
+    $(`cargo install --version 0.5.0 cargo-sweep`);
+    $(`cargo sweep -s`);
+  }
+
   header("Compiling native module");
   $(`cargo +${toolchain} build --release`);
 
@@ -286,6 +292,11 @@ function main(args) {
         `After: ${chalk.yellow(formatSize(after))} ` +
         `(${chalk.yellow(formatPercent((before - after) / before))} reduction)`
     );
+  }
+
+  if (process.env.CI) {
+    info(`In CI, asking cargo-sweep to clean up`);
+    $(`cargo sweep -f`);
   }
 
   info(`All done!`);
