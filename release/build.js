@@ -65,6 +65,16 @@ const OS_INFOS = {
 };
 const DEFAULT_ARCH = "x86_64";
 
+function hasSCCache() {
+  try {
+    let output = $$("sccache -V");
+    return output.trim() == "sccache 0.2.13";
+  } catch (e) {
+    console.log(`Could not check for sccache: ${e}`);
+  }
+  return false;
+}
+
 /**
  * @param {string[]} args
  */
@@ -198,10 +208,12 @@ function main(args) {
 
   $(`rustup toolchain install ${toolchain}`);
 
-  if (process.env.CI) {
-    info(`In CI, enabling cargo-sweep`);
-    $(`cargo install --version 0.5.0 cargo-sweep`);
-    $(`cargo sweep -s`);
+  if (process.env.CI || process.env.ENABLE_SCCACHE) {
+    info(`Enabling sccache`);
+    if (!hasSCCache()) {
+      $(`cargo install --version 0.2.13 sccache`);
+    }
+    process.env.RUSTC_WRAPPER = `${process.env.HOME}/.cargo/bin/sccache`;
   }
 
   header("Compiling native module");
@@ -292,11 +304,6 @@ function main(args) {
         `After: ${chalk.yellow(formatSize(after))} ` +
         `(${chalk.yellow(formatPercent((before - after) / before))} reduction)`
     );
-  }
-
-  if (process.env.CI) {
-    info(`In CI, asking cargo-sweep to clean up`);
-    $(`cargo sweep -f`);
   }
 
   info(`All done!`);
