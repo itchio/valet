@@ -89,7 +89,6 @@ unsafe extern "C" fn init(env: RawEnv, _exports: RawValue) -> RawValue {
 
                 let (deferred, promise) = env.deferred()?;
                 log::info!("Spawning self update check...");
-                // this breaks with a TLS error
                 runtime.spawn(async move {
                     log::info!("Running self update check...");
                     match selfupdate::check(&settings).await {
@@ -106,7 +105,6 @@ unsafe extern "C" fn init(env: RawEnv, _exports: RawValue) -> RawValue {
                 });
                 log::info!("Returning promise...");
                 Ok(promise)
-                // Ok(false)
             })?;
 
             cb.method_0("newConn", |env, _this| {

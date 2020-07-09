@@ -1,5 +1,5 @@
 use backoff::{futures::BackoffExt, ExponentialBackoff};
-use reqwest::{IntoUrl, Method, Request, RequestBuilder};
+use reqwest::{IntoUrl, Method, Proxy, Request, RequestBuilder};
 use std::{fmt, time::Duration};
 
 pub struct Client {
@@ -19,10 +19,24 @@ const USER_AGENT: &str = "valet self-updater";
 
 impl Client {
     pub fn new() -> Result<Self, reqwest::Error> {
-        let inner = reqwest::Client::builder()
+        let mut inner = reqwest::Client::builder()
             .user_agent(USER_AGENT)
-            .connect_timeout(Duration::from_secs(30))
-            .build()?;
+            .connect_timeout(Duration::from_secs(30));
+
+        if let Ok(http_proxy) = std::env::var("http_proxy") {
+            inner = inner.proxy(Proxy::all(&http_proxy)?);
+        }
+
+        const IGNORE_CERT_ERRORS_KEY: &str = "HTTPKIT_IGNORE_CERTIFICATE_ERRORS";
+        if let Some("1") = std::env::var(IGNORE_CERT_ERRORS_KEY).ok().as_deref() {
+            log::warn!(
+                "Accepting invalid certificates ({:?} set to 1)",
+                IGNORE_CERT_ERRORS_KEY
+            );
+            inner = inner.danger_accept_invalid_certs(true)
+        }
+
+        let inner = inner.build()?;
         Ok(Self { inner })
     }
 
