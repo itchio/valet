@@ -1,10 +1,8 @@
-mod client;
 mod platform;
 
-use client::Client;
-use reqwest::Method;
+use httpkit::{Client, Method};
 use serde::Deserialize;
-use std::{path::PathBuf, sync::Arc};
+use std::path::PathBuf;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -16,8 +14,8 @@ pub enum Error {
     PlatformError(#[from] platform::Error),
 }
 
-impl From<reqwest::Error> for Error {
-    fn from(err: reqwest::Error) -> Self {
+impl From<httpkit::Error> for Error {
+    fn from(err: httpkit::Error) -> Self {
         Self::RequestError(err.to_string())
     }
 }
@@ -41,12 +39,11 @@ pub async fn check(settings: &Settings) -> Result<String, Error> {
     log::info!("For channel {}", channel);
     let channel_url = format!("{}/itch-setup/{}", BROTH_BASE_URL, channel);
 
-    let client = Arc::new(Client::new()?);
+    let client = Client::new()?;
     let version_url = format!("{}/versions", channel_url);
     let req = client.request(Method::GET, &version_url).build()?;
 
     let versions_list: VersionsList = client
-        .clone()
         .execute(req)
         .await
         .map_err(|e| Error::RequestError(e.to_string()))?

@@ -1,0 +1,23 @@
+[package]
+name = "with-backoff"
+version = "0.2.0"
+authors = ["Tibor Benke <ihrwein@gmail.com>", "Amos Wenger <amoswenger@gmail.com>"]
+license = "MIT/Apache-2.0"
+readme = "README.md"
+repository = "https://github.com/itchio/valet"
+homepage = "https://github.com/itchio/valet"
+categories = ["network-programming"]
+description = """
+Retry operations with exponential backoff policy.
+"""
+edition = "2018"
+
+[dependencies]
+rand = "0.7"
+futures = "0.3.5"
+futures-timer = "3.0.2"
+
+[dev-dependencies]
+reqwest = { version = "0.10.1", features = ["json", "blocking"] }
+tokio = "0.2.21"
+matches = "0.1.8"

@@ -1,0 +1,11 @@
+[package]
+name = "httpkit"
+version = "0.1.0"
+authors = ["Amos Wenger <amoswenger@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+log = "0.4.8"
+reqwest = { version = "0.10.6", default-features = false, features = ["json", "gzip", "rustls-tls"] }
+with-backoff = { path = "../with-backoff" }
+

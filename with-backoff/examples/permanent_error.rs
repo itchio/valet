@@ -1,8 +1,5 @@
-extern crate backoff;
-extern crate reqwest;
-
-use backoff::{Error, ExponentialBackoff, Operation};
 use reqwest::Url;
+use with_backoff::{Error, ExponentialBackoff, Operation};
 
 use std::fmt::Display;
 use std::io::{self, Read};

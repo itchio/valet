@@ -1,4 +1,4 @@
-use instant::Instant;
+use std::time::Instant;
 
 /// Clock returns the current time.
 pub trait Clock {

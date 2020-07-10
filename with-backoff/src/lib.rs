@@ -49,9 +49,6 @@
 //!   10        | 19.210                   | None
 //!
 
-extern crate instant;
-extern crate rand;
-
 pub mod backoff;
 mod clock;
 pub mod default;

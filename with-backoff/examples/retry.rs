@@ -1,7 +1,4 @@
-extern crate backoff;
-extern crate reqwest;
-
-use backoff::{Error, ExponentialBackoff, Operation};
+use with_backoff::{Error, ExponentialBackoff, Operation};
 
 use std::io::Read;
 

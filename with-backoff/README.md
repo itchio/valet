@@ -39,11 +39,8 @@ into `Error::Permanent`. You can use `Result`'s `map_err` method.
 `examples/permanent_error.rs`:
 
 ```rust
-extern crate backoff;
-extern crate reqwest;
-
-use backoff::{Error, ExponentialBackoff, Operation};
-use reqwest::IntoUrl;
+use reqwest::Url;
+use with_backoff::{Error, ExponentialBackoff, Operation};
 
 use std::fmt::Display;
 use std::io::{self, Read};
@@ -55,12 +52,12 @@ fn new_io_err<E: Display>(err: E) -> io::Error {
 fn fetch_url(url: &str) -> Result<String, Error<io::Error>> {
     let mut op = || {
         println!("Fetching {}", url);
-        let url = url.into_url()
+        let url = Url::parse(url)
             .map_err(new_io_err)
             // Permanent errors need to be explicitly constucted.
             .map_err(Error::Permanent)?;
 
-        let mut resp = reqwest::get(url)
+        let mut resp = reqwest::blocking::get(url)
             // Transient errors can be constructed with the ? operator
             // or with the try! macro. No explicit conversion needed
             // from E: Error to backoff::Error;
@@ -81,6 +78,7 @@ fn main() {
         Err(err) => panic!("Failed to fetch: {}", err),
     }
 }
+
 ```
 
 Output:
@@ -106,17 +104,14 @@ By using the ? operator or the `try!` macro, you always get transient errors.
 `examples/retry.rs`:
 
 ```rust
-extern crate backoff;
-extern crate reqwest;
-
-use backoff::{Error, ExponentialBackoff, Operation};
+use with_backoff::{Error, ExponentialBackoff, Operation};
 
 use std::io::Read;
 
 fn fetch_url(url: &str) -> Result<String, Error<reqwest::Error>> {
     let mut op = || {
         println!("Fetching {}", url);
-        let mut resp = reqwest::get(url)?;
+        let mut resp = reqwest::blocking::get(url)?;
 
         let mut content = String::new();
         let _ = resp.read_to_string(&mut content);

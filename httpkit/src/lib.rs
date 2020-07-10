@@ -1,9 +1,12 @@
-use backoff::{futures::BackoffExt, ExponentialBackoff};
-use reqwest::{IntoUrl, Method, Proxy, Request, RequestBuilder};
+pub use reqwest::{
+    Client as ReqwestClient, ClientBuilder, Error, IntoUrl, Method, Proxy, Request, RequestBuilder,
+    Response,
+};
 use std::{fmt, time::Duration};
+use with_backoff::{futures::BackoffExt, Error as BackoffError, ExponentialBackoff};
 
 pub struct Client {
-    pub inner: reqwest::Client,
+    pub inner: ReqwestClient,
 }
 
 #[derive(Debug)]
@@ -18,8 +21,11 @@ impl fmt::Display for UnretriableRequest {
 const USER_AGENT: &str = "valet self-updater";
 
 impl Client {
-    pub fn new() -> Result<Self, reqwest::Error> {
-        let mut inner = reqwest::Client::builder()
+    pub fn new_with_setup<F>(setup: F) -> Result<Self, Error>
+    where
+        F: FnOnce(ClientBuilder) -> ClientBuilder,
+    {
+        let mut inner = ReqwestClient::builder()
             .user_agent(USER_AGENT)
             .connect_timeout(Duration::from_secs(30));
 
@@ -36,18 +42,25 @@ impl Client {
             inner = inner.danger_accept_invalid_certs(true)
         }
 
-        let inner = inner.build()?;
+        let inner = setup(inner).build()?;
         Ok(Self { inner })
+    }
+
+    pub fn new() -> Result<Self, Error> {
+        Self::new_with_setup(|b| b)
     }
 
     pub fn request<U: IntoUrl>(&self, method: Method, url: U) -> RequestBuilder {
         self.inner.request(method, url)
     }
 
-    pub async fn execute(&self, req: Request) -> Result<reqwest::Response, reqwest::Error> {
+    pub async fn execute_no_retry(&self, req: Request) -> Result<Response, Error> {
+        self.inner.execute(req.try_clone().unwrap()).await
+    }
+
+    pub async fn execute(&self, req: Request) -> Result<Response, Error> {
         let exec = || async {
-            self.inner
-                .execute(req.try_clone().unwrap())
+            self.execute_no_retry(req.try_clone().unwrap())
                 .await
                 .and_then(|r| r.error_for_status())
                 .map_err(|e| {
@@ -59,9 +72,9 @@ impl Client {
                         false
                     };
                     if transient {
-                        backoff::Error::Transient(e)
+                        BackoffError::Transient(e)
                     } else {
-                        backoff::Error::Permanent(e)
+                        BackoffError::Permanent(e)
                     }
                 })
         };
@@ -77,7 +90,7 @@ trait FromBackoff<E> {
     fn from_backoff(self) -> E;
 }
 
-impl<E> FromBackoff<E> for backoff::Error<E> {
+impl<E> FromBackoff<E> for BackoffError<E> {
     fn from_backoff(self) -> E {
         match self {
             Self::Transient(e) | Self::Permanent(e) => e,
