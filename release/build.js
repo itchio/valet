@@ -227,6 +227,7 @@ function main(args) {
     process.env.SCCACHE_SERVER_PORT = `${port}`;
 
     let sccache_path;
+    let sccache_bin;
     if (process.platform === "linux") {
       let binURL = `https://github.com/fasterthanlime/private-sccache-binaries/releases/download/v0.2.13/sccache-linux`;
       if (!existsSync("./sccache")) {
@@ -234,11 +235,13 @@ function main(args) {
       }
       $(`chmod +x ./sccache`);
       sccache_path = `${process.cwd()}/sccache`;
+      sccache_bin = `./sccache`;
     } else {
       if (!hasSCCache()) {
         $(`cargo install --version 0.2.13 sccache`);
       }
       sccache_path = `${process.env.HOME}/.cargo/bin/sccache`;
+      sccache_bin = `sccache`;
     }
 
     process.env.RUSTC_WRAPPER = sccache_path;
@@ -274,13 +277,13 @@ function main(args) {
     }
 
     try {
-      $(`${sccache_path} --stop-server`);
+      $(`${sccache_bin} --stop-server`);
     } catch (e) {
       console.log(`Could not stop sccache server: ${e}`);
       console.log(`Continuing anyway.`);
     }
     try {
-      $(`${sccache_path} --start-server`);
+      $(`${sccache_bin} --start-server`);
     } catch (e) {
       console.log(`Could not start sccache server: ${e}`);
       console.log(`Continuing anyway.`);
