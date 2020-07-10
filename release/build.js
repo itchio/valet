@@ -221,12 +221,15 @@ function main(args) {
 
   $(`rustup toolchain install ${toolchain}`);
 
+  let sccache_cleanup = () => {};
   if (process.env.CI || process.env.ENABLE_SCCACHE) {
     let port = generateSccachePort();
     info(`Enabling sccache (on port ${port})`);
     process.env.SCCACHE_SERVER_PORT = `${port}`;
 
+    /** @type string */
     let sccache_path;
+    /** @type string */
     let sccache_bin;
     if (process.platform === "linux") {
       let binURL = `https://github.com/fasterthanlime/private-sccache-binaries/releases/download/v0.2.13/sccache-linux`;
@@ -288,6 +291,15 @@ function main(args) {
       console.log(`Could not start sccache server: ${e}`);
       console.log(`Continuing anyway.`);
     }
+
+    sccache_cleanup = () => {
+      try {
+        $(`${sccache_bin} --stop-server`);
+      } catch (e) {
+        console.log(`Could not stop sccache server: ${e}`);
+        console.log(`Continuing anyway.`);
+      }
+    };
   }
 
   header("Compiling native module");
@@ -379,6 +391,8 @@ function main(args) {
         `(${chalk.yellow(formatPercent((before - after) / before))} reduction)`
     );
   }
+
+  sccache_cleanup();
 
   info(`All done!`);
 }
