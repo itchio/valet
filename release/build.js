@@ -230,7 +230,7 @@ function main(args) {
     if (process.platform === "linux") {
       let binURL = `https://github.com/fasterthanlime/private-sccache-binaries/releases/download/v0.2.13/sccache-linux`;
       if (!existsSync("./sccache")) {
-        $(`wget -L -O ./sccache ${binURL}`);
+        $(`curl -L -f -o ./sccache ${binURL}`);
       }
       $(`chmod +x ./sccache`);
       sccache_path = `${process.cwd()}/sccache`;
