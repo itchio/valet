@@ -244,16 +244,34 @@ function main(args) {
     process.env.RUSTC_WRAPPER = sccache_path;
     process.env.SCCACHE_GCS_BUCKET = "gitlab-itchio-sccache";
     process.env.SCCACHE_GCS_RW_MODE = "READ_WRITE";
-    let keyPath = `${process.cwd()}/GCS_CACHE_CREDENTIALS`;
-    if (!existsSync(keyPath)) {
-      header(`sccache configuration warning`);
+    let keyPath = process.env.GCS_CACHE_CREDENTIALS;
+    if (!keyPath) {
+      console.warn(
+        chalk.yellow("==================================================")
+      );
+      console.warn(
+        chalk.yellow(
+          `GCS_CACHE_CREDENTIALS: env variable not set, sccache will fall back to local cache`
+        )
+      );
+      console.warn(
+        chalk.yellow("==================================================")
+      );
+    } else if (!existsSync(keyPath)) {
+      console.warn(
+        chalk.yellow("==================================================")
+      );
       console.warn(
         chalk.yellow(
           `${keyPath}: not found, sccache will fall back to local cache`
         )
       );
+      console.warn(
+        chalk.yellow("==================================================")
+      );
+    } else {
+      process.env.SCCACHE_GCS_KEY_PATH = keyPath;
     }
-    process.env.SCCACHE_GCS_KEY_PATH = keyPath;
 
     try {
       $(`${sccache_path} --stop-server`);
