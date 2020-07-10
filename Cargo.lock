@@ -1095,6 +1095,7 @@ dependencies = [
  "log",
  "napi",
  "napi_stub",
+ "once_cell",
  "selfupdate",
  "simple_logger",
  "tinyjson",

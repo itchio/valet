@@ -4,6 +4,9 @@ export interface InitOpts {
   /** path to DB file */
   dbPath: string;
 
+  /** path to broth folder */
+  brothPath: string;
+
   /** user agent */
   userAgent?: string;
 

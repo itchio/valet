@@ -1,3 +1,4 @@
+use fmt::Debug;
 pub use nj_sys;
 use nj_sys::*;
 use std::{
@@ -234,7 +235,10 @@ impl JsValue {
         .check()
     }
 
-    pub fn get_property_maybe<K: ToNapi, V: FromNapi>(&self, key: K) -> JsResult<Option<V>> {
+    pub fn get_property_maybe<K: ToNapi + Debug, V: FromNapi>(
+        &self,
+        key: K,
+    ) -> JsResult<Option<V>> {
         let mut value = ptr::null_mut();
         unsafe { napi_get_property(self.env.0, self.value, key.to_napi(&self.env)?, &mut value) }
             .check()?;
@@ -244,15 +248,18 @@ impl JsValue {
         if typ == napi_valuetype_napi_undefined {
             Ok(None)
         } else {
-            Ok(Some(V::from_napi(&self.env, value)?))
+            Ok(Some(V::from_napi(&self.env, value).map_err(|e| {
+                JsError::Custom(Box::new(format!("in get_property_maybe({:?}): {}", key, e)))
+            })?))
         }
     }
 
-    pub fn get_property<K: ToNapi, V: FromNapi>(&self, key: K) -> JsResult<V> {
+    pub fn get_property<K: ToNapi + Debug, V: FromNapi>(&self, key: K) -> JsResult<V> {
         let mut value = ptr::null_mut();
         unsafe { napi_get_property(self.env.0, self.value, key.to_napi(&self.env)?, &mut value) }
             .check()?;
-        Ok(V::from_napi(&self.env, value)?)
+        Ok(V::from_napi(&self.env, value)
+            .map_err(|e| JsError::Custom(Box::new(format!("in get_property({:?}): {}", key, e))))?)
     }
 
     pub fn build_class<T, F>(&self, t: T, f: F) -> JsResult<()>

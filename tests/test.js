@@ -29,6 +29,7 @@ async function main() {
 
   valet.initialize({
     dbPath: "./tmp/butler.db",
+    brothPath: "./tmp/broth",
   });
 
   let client = new Client();

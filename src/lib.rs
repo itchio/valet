@@ -1,7 +1,8 @@
 use libbutler::{Buffer, Conn};
 use log::*;
 use napi::*;
-use std::{error::Error, fmt, path::PathBuf};
+use once_cell::sync::Lazy;
+use std::{error::Error, fmt, path::PathBuf, sync::Mutex};
 use tokio::runtime::Runtime;
 
 include!("../generated/version.rs");
@@ -38,6 +39,12 @@ struct TesterState {
     count: i64,
 }
 
+pub struct Config {
+    pub broth_path: String,
+}
+
+pub static CONFIG: Lazy<Mutex<Option<Config>>> = Lazy::new(|| Mutex::new(None));
+
 #[no_mangle]
 unsafe extern "C" fn init(env: RawEnv, _exports: RawValue) -> RawValue {
     simple_logger::init_by_env();
@@ -61,6 +68,7 @@ unsafe extern "C" fn init(env: RawEnv, _exports: RawValue) -> RawValue {
         valet.build_class((), |cb| {
             cb.method_1("initialize", |env, _this, opts: JsValue| {
                 let db_path: String = opts.get_property("dbPath")?;
+                let broth_path: String = opts.get_property("brothPath")?;
                 let user_agent: Option<String> = opts.get_property_maybe("userAgent")?;
                 let address: Option<String> = opts.get_property_maybe("address")?;
 

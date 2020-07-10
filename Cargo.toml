@@ -19,6 +19,7 @@ simple_logger = { version = "1.6.0", default-features = false }
 tokio = { version = "0.2.21", features = ["sync", "rt-core", "rt-util", "rt-threaded", "macros"] }
 selfupdate = { path = "./selfupdate" }
 futures = "0.3.5"
+once_cell = "1.4.0"
 
 [target.'cfg(windows)'.dependencies]
 napi_stub = { path = "./napi_stub" }
