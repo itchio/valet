@@ -18,4 +18,6 @@ tmp
 /release-tools
 /*.js
 /*.d.ts
+GCS_CACHE_CREDENTIALS
+/sccache
 

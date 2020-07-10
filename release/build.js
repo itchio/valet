@@ -14,7 +14,7 @@ const {
   detectOS,
   setVerbose,
 } = require("@itchio/bob");
-const { mkdirSync, readFileSync, writeFileSync } = require("fs");
+const { mkdirSync, readFileSync, writeFileSync, existsSync } = require("fs");
 
 /**
  * @typedef OsInfo
@@ -73,6 +73,19 @@ function hasSCCache() {
     console.log(`Could not check for sccache: ${e}`);
   }
   return false;
+}
+
+/**
+ * @returns number
+ */
+function generateSccachePort() {
+  const sccacheDefaultPort = 4226;
+  let sum = 0;
+  let input = `${process.env.CI_JOB_NAME}`;
+  for (let i = 0; i < input.length; i++) {
+    sum += input.charCodeAt(i);
+  }
+  return (sum % 255) + sccacheDefaultPort;
 }
 
 /**
@@ -209,11 +222,51 @@ function main(args) {
   $(`rustup toolchain install ${toolchain}`);
 
   if (process.env.CI || process.env.ENABLE_SCCACHE) {
-    info(`Enabling sccache`);
-    if (!hasSCCache()) {
-      $(`cargo install --version 0.2.13 sccache`);
+    let port = generateSccachePort();
+    info(`Enabling sccache (on port ${port})`);
+    process.env.SCCACHE_SERVER_PORT = `${port}`;
+
+    let sccache_path;
+    if (process.platform === "linux") {
+      let binURL = `https://github.com/fasterthanlime/private-sccache-binaries/releases/download/v0.2.13/sccache-linux`;
+      if (!existsSync("./sccache")) {
+        $(`wget -L -O ./sccache ${binURL}`);
+      }
+      $(`chmod +x ./sccache`);
+      sccache_path = `${process.cwd()}/sccache`;
+    } else {
+      if (!hasSCCache()) {
+        $(`cargo install --version 0.2.13 sccache`);
+      }
+      sccache_path = `${process.env.HOME}/.cargo/bin/sccache`;
     }
-    process.env.RUSTC_WRAPPER = `${process.env.HOME}/.cargo/bin/sccache`;
+
+    process.env.RUSTC_WRAPPER = sccache_path;
+    process.env.SCCACHE_GCS_BUCKET = "gitlab-itchio-sccache";
+    process.env.SCCACHE_GCS_RW_MODE = "READ_WRITE";
+    let keyPath = `${process.cwd()}/GCS_CACHE_CREDENTIALS`;
+    if (!existsSync(keyPath)) {
+      header(`sccache configuration warning`);
+      console.warn(
+        chalk.yellow(
+          `${keyPath}: not found, sccache will fall back to local cache`
+        )
+      );
+    }
+    process.env.SCCACHE_GCS_KEY_PATH = keyPath;
+
+    try {
+      $(`${sccache_path} --stop-server`);
+    } catch (e) {
+      console.log(`Could not stop sccache server: ${e}`);
+      console.log(`Continuing anyway.`);
+    }
+    try {
+      $(`${sccache_path} --start-server`);
+    } catch (e) {
+      console.log(`Could not start sccache server: ${e}`);
+      console.log(`Continuing anyway.`);
+    }
   }
 
   header("Compiling native module");
