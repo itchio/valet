@@ -20,6 +20,7 @@ tokio = { version = "0.2.21", features = ["sync", "rt-core", "rt-util", "rt-thre
 selfupdate = { path = "./selfupdate" }
 futures = "0.3.5"
 once_cell = "1.4.0"
+flume = "0.7.2"
 
 [target.'cfg(windows)'.dependencies]
 napi_stub = { path = "./napi_stub" }

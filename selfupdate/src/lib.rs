@@ -1,23 +1,21 @@
-mod platform;
+pub mod broth;
+pub mod platform;
 
-use httpkit::{Client, Method};
-use serde::Deserialize;
+use httpkit::Client;
 use std::path::PathBuf;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error("dummy error")]
     DummyError,
-    #[error("request error: {0}")]
-    RequestError(String),
+    #[error("broth error: {0}")]
+    BrothError(#[from] broth::Error),
     #[error("platform error: {0}")]
     PlatformError(#[from] platform::Error),
-}
-
-impl From<httpkit::Error> for Error {
-    fn from(err: httpkit::Error) -> Self {
-        Self::RequestError(err.to_string())
-    }
+    #[error("httpkit error: {0}")]
+    HttpKitError(#[from] httpkit::Error),
+    #[error("no latest version of itch-setup")]
+    NoLatestVersion,
 }
 
 pub struct Settings {
@@ -25,33 +23,30 @@ pub struct Settings {
     pub is_canary: bool,
 }
 
-const BROTH_BASE_URL: &str = "https://broth.itch.ovh";
-
-#[derive(Deserialize, Debug)]
-struct VersionsList {
-    versions: Vec<String>,
-}
-
 pub async fn check(settings: &Settings) -> Result<String, Error> {
-    log::info!("Checking for update...");
+    log::info!("Checking for itch-setup updates...");
 
-    let channel = platform::get_channel_name(settings)?;
-    log::info!("For channel {}", channel);
-    let channel_url = format!("{}/itch-setup/{}", BROTH_BASE_URL, channel);
+    let spec = broth::ComponentSpec {
+        settings: &broth::Settings {
+            components_dir: settings.components_dir.clone(),
+        },
+        component: "itch-setup".into(),
+        channel: platform::get_channel_name(settings)?,
+    };
 
     let client = Client::new()?;
-    let version_url = format!("{}/versions", channel_url);
-    let req = client.request(Method::GET, &version_url).build()?;
 
-    let versions_list: VersionsList = client
-        .execute(req)
-        .await
-        .map_err(|e| Error::RequestError(e.to_string()))?
-        .json()
-        .await?;
+    let latest_version = spec
+        .get_latest_version(&client)
+        .await?
+        .ok_or(Error::NoLatestVersion)?;
+    let present_versions = spec.get_present_versions()?;
 
-    let latest_version = versions_list.versions.first();
+    log::info!("found {} present versions: ", present_versions.len());
+    for v in &present_versions {
+        log::info!("- {}", v);
+    }
+    log::info!("latest version: {}", latest_version);
 
-    let res = format!("latest version of itch-setup is {:?}", latest_version);
-    Ok(res)
+    Ok("stub!".into())
 }

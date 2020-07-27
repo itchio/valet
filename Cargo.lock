@@ -118,6 +118,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "flume"
+version = "0.7.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "835349a364636c2aaafda82d5514c32ac7463898207ae5f97d978a82ad26b517"
+dependencies = [
+ "futures",
+ "spin",
+]
+
+[[package]]
 name = "fnv"
 version = "1.0.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1079,6 +1089,7 @@ dependencies = [
 name = "valet"
 version = "1.2.0"
 dependencies = [
+ "flume",
  "futures",
  "libbutler",
  "log",

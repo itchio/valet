@@ -1,17 +1,21 @@
 export * from "./client";
 
-export interface InitOpts {
+export interface Config {
   /** path to DB file */
   dbPath: string;
 
-  /** path to broth folder */
-  brothPath: string;
+  /** path to broth components */
+  componentsDir: string;
 
-  /** user agent */
+  /** HTTP user-agent to use */
   userAgent?: string;
-
   /** itch.io API address, defaults to "https://itch.io" */
   address?: string;
+
+  /** current app version */
+  appVersion?: string;
+  /** is the app canary channel or not? */
+  isCanary?: boolean;
 }
 
 export interface Conn {
@@ -28,14 +32,11 @@ export interface VersionObject {
 
 export interface ValetStatic {
   version: VersionObject;
-  initialize(opts: InitOpts): void;
+  initialize(opts: Config): void;
   newConn(): Conn;
   goPanic(): void;
   rustPanic(): void;
-  selfUpdateCheck(opts: {
-    componentsDir: string,
-    isCanary: boolean,
-  }): Promise<void>;
+  selfUpdateCheck(): Promise<string>;
 }
 
 function getOS(): string {

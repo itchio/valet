@@ -2,8 +2,15 @@ use libbutler::{Buffer, Conn};
 use log::*;
 use napi::*;
 use once_cell::sync::Lazy;
-use std::{error::Error, fmt, path::PathBuf, sync::Mutex};
+use std::{
+    error::Error,
+    fmt,
+    path::PathBuf,
+    sync::{Mutex, RwLock},
+};
 use tokio::runtime::Runtime;
+
+mod logging;
 
 include!("../generated/version.rs");
 
@@ -40,17 +47,56 @@ struct TesterState {
 }
 
 pub struct Config {
-    pub broth_path: String,
+    /// Path to databaes file
+    pub db_path: String,
+
+    /// Path to broth components
+    pub components_dir: PathBuf,
+
+    /// HTTP user-agent to use
+    pub user_agent: String,
+    /// itch.io server address
+    pub address: String,
+
+    /// current app version
+    pub app_version: String,
+    /// is the app canary channel or not?
+    pub is_canary: bool,
 }
 
-pub static CONFIG: Lazy<Mutex<Option<Config>>> = Lazy::new(|| Mutex::new(None));
+pub static CONFIG: Lazy<RwLock<Option<Config>>> = Lazy::new(|| RwLock::new(None));
+
+pub static LOG_RECEIVER: Lazy<Mutex<Option<flume::Receiver<logging::Record>>>> =
+    Lazy::new(|| Mutex::new(None));
+
+fn default_user_agent() -> String {
+    format!(
+        "valet/{}.{}.{}",
+        VERSION.major, VERSION.minor, VERSION.patch
+    )
+}
 
 #[no_mangle]
 unsafe extern "C" fn init(env: RawEnv, _exports: RawValue) -> RawValue {
-    simple_logger::init_by_env();
+    let (tx, rx) = flume::bounded(32);
+    let log_to_stderr = match std::env::var("LOUD_VALET") {
+        Ok(s) => s == "1",
+        _ => false,
+    };
+    let logger = logging::Logger {
+        log_to_stderr,
+        sender: std::sync::Mutex::new(tx),
+    };
+    log::set_boxed_logger(Box::new(logger)).unwrap();
+    log::set_max_level(log::LevelFilter::Debug);
 
     let runtime = Box::leak(Box::new(Runtime::new().unwrap()));
     let runtime = runtime.handle();
+
+    {
+        let mut log_receiver_guard = LOG_RECEIVER.lock().unwrap();
+        *log_receiver_guard = Some(rx);
+    }
 
     let env = JsEnv::new(env);
     env.throwable::<JsError>(&|| {
@@ -68,14 +114,39 @@ unsafe extern "C" fn init(env: RawEnv, _exports: RawValue) -> RawValue {
         valet.build_class((), |cb| {
             cb.method_1("initialize", |env, _this, opts: JsValue| {
                 let db_path: String = opts.get_property("dbPath")?;
-                let broth_path: String = opts.get_property("brothPath")?;
-                let user_agent: Option<String> = opts.get_property_maybe("userAgent")?;
-                let address: Option<String> = opts.get_property_maybe("address")?;
+                let components_dir: PathBuf =
+                    opts.get_property::<_, String>("componentsDir")?.into();
+                let user_agent: String = opts
+                    .get_property_maybe("userAgent")?
+                    .unwrap_or_else(default_user_agent);
+                let address: String = opts
+                    .get_property_maybe("address")?
+                    .unwrap_or("https://api.itch.io".into());
+                let app_version: String = opts
+                    .get_property_maybe("appVersion")?
+                    .unwrap_or(String::from("head"));
+                let is_canary: bool = opts.get_property_maybe("isCanary")?.unwrap_or_default();
+
+                let config = Config {
+                    db_path,
+                    components_dir,
+                    user_agent,
+                    address,
+                    app_version,
+                    is_canary,
+                };
+                {
+                    let mut config_lock = CONFIG.write().unwrap();
+                    *config_lock = Some(config);
+                }
+
+                let config = CONFIG.read().unwrap();
+                let config = config.as_ref().unwrap();
 
                 {
-                    let db_path = Buffer::from(db_path.as_ref());
-                    let user_agent = user_agent.as_ref().map(|s| Buffer::from(s.as_ref()));
-                    let address = address.as_ref().map(|s| Buffer::from(s.as_ref()));
+                    let db_path = Buffer::from(config.db_path.as_str());
+                    let user_agent = Some(Buffer::from(config.user_agent.as_str()));
+                    let address = Some(Buffer::from(config.address.as_str()));
                     let mut opts = libbutler::InitOpts {
                         id: 0,
                         db_path: &db_path,
@@ -87,12 +158,36 @@ unsafe extern "C" fn init(env: RawEnv, _exports: RawValue) -> RawValue {
                 }
             })?;
 
-            cb.method_1("selfUpdateCheck", move |env, _this, opts: JsValue| {
-                let is_canary: bool = opts.get_property("isCanary")?;
-                let components_dir: String = opts.get_property("componentsDir")?;
+            cb.method_0("receiveLogRecord", move |env, _this| {
+                let (deferred, promise) = env.deferred()?;
+
+                std::thread::spawn(|| {
+                    let log_receiver_guard = LOG_RECEIVER.lock().unwrap();
+                    let log_receiver = log_receiver_guard.as_ref().unwrap();
+                    match log_receiver.recv() {
+                        Ok(record) => {
+                            deferred.resolve(record).unwrap();
+                        }
+                        Err(e) => {
+                            deferred
+                                .reject(ErrorTemplate {
+                                    code: None,
+                                    msg: format!("While receiving log message: {}", e),
+                                })
+                                .unwrap();
+                        }
+                    }
+                });
+                Ok(promise)
+            })?;
+
+            cb.method_0("selfUpdateCheck", move |env, _this| {
+                let config = CONFIG.read().unwrap();
+                let config = config.as_ref().unwrap();
+
                 let settings = selfupdate::Settings {
-                    components_dir: PathBuf::from(components_dir),
-                    is_canary,
+                    components_dir: config.components_dir.clone(),
+                    is_canary: config.is_canary,
                 };
 
                 let (deferred, promise) = env.deferred()?;

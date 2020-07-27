@@ -478,6 +478,25 @@ pub struct JMethodInfo<T, D> {
     pub data: *mut D,
 }
 
+/// Template to build a JavaScript Error, given a `JsEnv`.
+pub struct ErrorTemplate<T: ToNapi> {
+    pub code: Option<T>,
+    pub msg: T,
+}
+
+impl<T: ToNapi> ToNapi for ErrorTemplate<T> {
+    fn to_napi(&self, env: &JsEnv) -> JsResult<RawValue> {
+        let mut res = ptr::null_mut();
+        let code = match self.code.as_ref() {
+            Some(code) => code.to_napi(env)?,
+            None => ptr::null_mut(),
+        };
+        let msg = self.msg.to_napi(env)?;
+        unsafe { napi_create_error(env.0, code, msg, &mut res) }.check()?;
+        Ok(res)
+    }
+}
+
 #[allow(dead_code)]
 impl JsEnv {
     pub fn new(e: napi_env) -> Self {
@@ -498,7 +517,7 @@ impl JsEnv {
                 ptr::null_mut(),
                 async_resource_name,
                 0,
-                2,
+                1,
                 ptr::null_mut(),
                 None,
                 context,
