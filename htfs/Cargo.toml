@@ -1,0 +1,17 @@
+[package]
+name = "htfs"
+version = "0.1.0"
+authors = ["Amos Wenger <amoswenger@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+futures-io = "0.3.5"
+thiserror = "1.0.20"
+tokio = { version = "0.2.22", features = ["full"] }
+futures-timer = "3.0.2"
+log = "0.4.11"
+reqwest = "0.10.7"
+url = "2.1.1"
+
+[dev-dependencies]
+pretty_env_logger = "0.4.0"
