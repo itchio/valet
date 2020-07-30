@@ -32,7 +32,7 @@ impl ComponentSpec<'_> {
         let req = client.request(Method::GET, &version_url).build()?;
 
         let versions_list: VersionsList = client.execute(req).await?.json().await?;
-        Ok(versions_list.versions.into_iter().last())
+        Ok(versions_list.versions.into_iter().nth(0))
     }
 
     pub fn get_present_versions(&self) -> Result<Vec<String>, Error> {
