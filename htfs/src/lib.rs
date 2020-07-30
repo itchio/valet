@@ -1,17 +1,13 @@
 #![allow(dead_code)]
 #![allow(unused_variables)]
 
+use async_stream::stream;
+use bytes::Bytes;
 use color_eyre::Report;
 use futures::io::AsyncRead;
+use futures::stream::TryStreamExt;
 use futures_timer::Delay;
-use std::{
-    collections::HashMap,
-    fmt,
-    pin::Pin,
-    sync::Arc,
-    task::{Context, Poll},
-    time::Duration,
-};
+use std::{collections::HashMap, fmt, sync::Arc, time::Duration};
 use url::Url;
 
 #[derive(Debug, thiserror::Error)]
@@ -57,39 +53,21 @@ impl File {
     }
 
     #[tracing::instrument]
-    pub fn get_reader(self: Arc<Self>, offset: u64) -> Result<impl AsyncRead, Report> {
+    pub async fn get_reader(self: Arc<Self>, offset: u64) -> Result<impl AsyncRead, Report> {
         if offset > self.size {
             Err(Error::ReadAfterEnd {
                 file_end: self.size,
                 requested: offset,
             })?
         } else {
-            Ok(Reader { file: self, offset })
+            let stream = stream! {
+                for _ in 0..5_u32 {
+                    yield Ok(Bytes::from("hello world"));
+                }
+            };
+
+            Ok(Box::pin(stream).into_async_read())
         }
-    }
-}
-
-struct Reader {
-    file: Arc<File>,
-    offset: u64,
-}
-
-impl fmt::Debug for Reader {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "htfs::Reader({:?}, at {})", self.file.url, self.offset)
-    }
-}
-
-impl AsyncRead for Reader {
-    #[tracing::instrument]
-    fn poll_read(
-        self: Pin<&mut Self>,
-        cx: &mut Context<'_>,
-        buf: &mut [u8],
-    ) -> Poll<futures::io::Result<usize>> {
-        log::debug!("Should read at offset {}", self.offset);
-
-        todo!()
     }
 }
 
@@ -117,11 +95,10 @@ mod tests {
 
     #[tokio::test(threaded_scheduler)]
     async fn some_test() {
-        install_tracing();
         std::env::set_var("RUST_LOG", "debug");
-        // pretty_env_logger::init();
+        install_tracing();
         color_eyre::install().unwrap();
-        some_test_inner().await.unwrap()
+        some_test_inner().await.unwrap();
     }
 
     #[tracing::instrument]
@@ -129,7 +106,7 @@ mod tests {
         let u = "https://example.org/".parse().unwrap();
         let f = File::new(u).await?;
 
-        let mut reader = f.get_reader(0)?;
+        let mut reader = f.get_reader(0).await?;
         let mut buf = vec![0u8; 16];
         loop {
             let n = reader.read(&mut buf).await?;
@@ -137,9 +114,8 @@ mod tests {
                 break;
             }
             log::info!("read {} bytes", n);
+            log::info!("{:?}", String::from_utf8_lossy(&buf[..n]));
         }
-
-        std::thread::sleep(Duration::from_secs(2));
 
         Ok(())
     }
