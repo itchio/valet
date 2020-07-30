@@ -2,23 +2,24 @@
 #![allow(unused_variables)]
 
 use async_stream::stream;
-use bytes::Bytes;
 use color_eyre::Report;
 use futures::io::AsyncRead;
+use futures::prelude::*;
 use futures::stream::TryStreamExt;
-use futures_timer::Delay;
-use std::{collections::HashMap, fmt, sync::Arc, time::Duration};
+use reqwest::Method;
+use std::{collections::HashMap, fmt, sync::Arc};
 use url::Url;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
-    #[error("sample error")]
-    Sample,
-    #[error("Trying to get reader at {file_end} but file ends at {requested}")]
+    #[error("zero-length file: the content-length header was not present or zero")]
+    ZeroLengthFile,
+    #[error("trying to get reader at {requested} but file ends at {file_end}")]
     ReadAfterEnd { file_end: u64, requested: u64 },
 }
 
 pub struct File {
+    client: reqwest::Client,
     url: Url,
     size: u64,
     blocks: HashMap<u64, Vec<u8>>,
@@ -32,27 +33,27 @@ impl fmt::Debug for File {
 
 impl File {
     #[tracing::instrument]
-    pub async fn new(url: Url) -> Result<Arc<Self>, Error> {
-        tokio::spawn(async move {
-            log::debug!("in File task...");
-            for _ in 0..5_i32 {
-                Delay::new(Duration::from_millis(250)).await;
-                log::debug!("in File task loop...");
-            }
-
-            let res: Result<(), ()> = Ok(());
-            res
-        });
+    pub async fn new(url: Url) -> Result<Arc<Self>, Report> {
+        let client = reqwest::Client::new();
+        let req = client
+            .request(Method::GET, url.clone())
+            .header("range", "bytes=0-")
+            .build()?;
+        let res = client.execute(req).await?;
+        let size = res.content_length().unwrap_or_default();
+        if size == 0 {
+            return Err(Error::ZeroLengthFile)?;
+        }
 
         let f = Self {
+            client,
             url,
-            size: 0,
+            size,
             blocks: Default::default(),
         };
         Ok(Arc::new(f))
     }
 
-    #[tracing::instrument]
     pub async fn get_reader(self: Arc<Self>, offset: u64) -> Result<impl AsyncRead, Report> {
         if offset > self.size {
             Err(Error::ReadAfterEnd {
@@ -60,9 +61,24 @@ impl File {
                 requested: offset,
             })?
         } else {
+            let req = self
+                .client
+                .request(Method::GET, self.url.clone())
+                .header("range", format!("bytes={}-", offset))
+                .build()?;
+            let res = self.client.execute(req).await?;
+            let mut body = res.bytes_stream();
+
             let stream = stream! {
-                for _ in 0..5_u32 {
-                    yield Ok(Bytes::from("hello world"));
+                while let Some(chunk) = body.next().await {
+                    match chunk {
+                        Ok(chunk) => {
+                            yield Ok(chunk)
+                        },
+                        Err(e) => {
+                            yield Err(std::io::Error::new(std::io::ErrorKind::Other, e))
+                        }
+                    }
                 }
             };
 
@@ -81,7 +97,7 @@ mod tests {
         use tracing_subscriber::prelude::*;
         use tracing_subscriber::{fmt, EnvFilter};
 
-        let fmt_layer = fmt::layer().with_target(false);
+        let fmt_layer = fmt::layer();
         let filter_layer = EnvFilter::try_from_default_env()
             .or_else(|_| EnvFilter::try_new("info"))
             .unwrap();
@@ -95,7 +111,7 @@ mod tests {
 
     #[tokio::test(threaded_scheduler)]
     async fn some_test() {
-        std::env::set_var("RUST_LOG", "debug");
+        std::env::set_var("RUST_LOG", "reqwest=debug,hyper::client=debug,htfs=debug");
         install_tracing();
         color_eyre::install().unwrap();
         some_test_inner().await.unwrap();
@@ -106,16 +122,11 @@ mod tests {
         let u = "https://example.org/".parse().unwrap();
         let f = File::new(u).await?;
 
-        let mut reader = f.get_reader(0).await?;
-        let mut buf = vec![0u8; 16];
-        loop {
-            let n = reader.read(&mut buf).await?;
-            if n == 0 {
-                break;
-            }
-            log::info!("read {} bytes", n);
-            log::info!("{:?}", String::from_utf8_lossy(&buf[..n]));
-        }
+        let mut buf = vec![0u8; 29];
+        let mut reader = f.get_reader(34).await?;
+        reader.read_exact(&mut buf).await?;
+
+        log::info!("{:?}", String::from_utf8_lossy(&buf[..]));
 
         Ok(())
     }
