@@ -7,7 +7,7 @@ use futures::io::AsyncRead;
 use futures::prelude::*;
 use futures::stream::TryStreamExt;
 use reqwest::Method;
-use std::{collections::HashMap, fmt, sync::Arc};
+use std::{collections::HashMap, fmt};
 use url::Url;
 
 #[derive(Debug, thiserror::Error)]
@@ -33,7 +33,7 @@ impl fmt::Debug for File {
 
 impl File {
     #[tracing::instrument]
-    pub async fn new(url: Url) -> Result<Arc<Self>, Report> {
+    pub async fn new(url: Url) -> Result<Self, Report> {
         let client = reqwest::Client::new();
         let req = client
             .request(Method::GET, url.clone())
@@ -51,10 +51,10 @@ impl File {
             size,
             blocks: Default::default(),
         };
-        Ok(Arc::new(f))
+        Ok(f)
     }
 
-    pub async fn get_reader(self: Arc<Self>, offset: u64) -> Result<impl AsyncRead, Report> {
+    pub async fn get_reader(&self, offset: u64) -> Result<impl AsyncRead, Report> {
         if offset > self.size {
             Err(Error::ReadAfterEnd {
                 file_end: self.size,
@@ -84,6 +84,10 @@ impl File {
 
             Ok(Box::pin(stream).into_async_read())
         }
+    }
+
+    pub fn size(&self) -> u64 {
+        self.size
     }
 }
 
