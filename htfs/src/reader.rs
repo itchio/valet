@@ -1,9 +1,9 @@
 use futures::io::AsyncRead;
-use futures::prelude::*;
+use futures::{lock::Mutex, prelude::*};
 use std::{
     io,
     pin::Pin,
-    sync::{Arc, Mutex},
+    sync::Arc,
     task::{Context, Poll},
     time::Duration,
 };
@@ -28,7 +28,7 @@ where
         tokio::time::delay_for(Duration::from_millis(200)).await;
         tracing::info!("reading!");
 
-        let mut reader = reader.lock().unwrap();
+        let mut reader = reader.lock().await;
         match reader.read(&mut buf).await {
             Ok(n) => Ok((buf, n)),
             Err(e) => Err(e),

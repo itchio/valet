@@ -1,21 +1,18 @@
 #![allow(dead_code)]
 #![allow(unused_variables)]
 
-use async_stream::stream;
 use color_eyre::Report;
 use futures::io::AsyncRead;
-use futures::prelude::*;
-use futures::stream::TryStreamExt;
+use futures::lock::Mutex;
 use reqwest::Method;
-use std::{
-    collections::HashMap,
-    fmt,
-    sync::{Arc, Mutex},
-};
+use std::{collections::HashMap, fmt, sync::Arc};
 use url::Url;
 
 mod reader;
 use reader::Reader;
+mod conn;
+mod response_reader;
+use conn::Conn;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -29,7 +26,8 @@ pub struct File {
     client: reqwest::Client,
     url: Url,
     size: u64,
-    blocks: HashMap<u64, Vec<u8>>,
+    connections: Mutex<Vec<Conn<'static>>>,
+    blocks: Mutex<HashMap<u64, Vec<u8>>>,
 }
 
 impl fmt::Debug for File {
@@ -52,10 +50,17 @@ impl File {
             return Err(Error::ZeroLengthFile)?;
         }
 
+        let connections: Mutex<Vec<Conn>> = Default::default();
+        {
+            let mut connections = connections.lock().await;
+            connections.push(Conn::new(response_reader::as_reader(res), 0));
+        }
+
         let f = Self {
             client,
             url,
             size,
+            connections,
             blocks: Default::default(),
         };
         Ok(f)
@@ -74,21 +79,7 @@ impl File {
                 .header("range", format!("bytes={}-", offset))
                 .build()?;
             let res = self.client.execute(req).await?;
-            let mut body = res.bytes_stream();
-
-            let stream = stream! {
-                while let Some(chunk) = body.next().await {
-                    match chunk {
-                        Ok(chunk) => {
-                            yield Ok(chunk)
-                        },
-                        Err(e) => {
-                            yield Err(std::io::Error::new(std::io::ErrorKind::Other, e))
-                        }
-                    }
-                }
-            };
-            let reader = Box::pin(stream).into_async_read();
+            let reader = response_reader::as_reader(res);
             let reader = Reader {
                 reader: Arc::new(Mutex::new(reader)),
                 fut: None,
