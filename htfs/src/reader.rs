@@ -1,26 +1,31 @@
+use crate::{response_reader, File};
 use futures::io::AsyncRead;
 use futures::prelude::*;
+use reqwest::Method;
 use std::{
     fmt::{self, Debug},
     io,
     pin::Pin,
+    sync::Arc,
     task::{Context, Poll},
     time::Duration,
 };
 
-pub struct ReaderInner<R>
-where
-    R: AsyncRead + Unpin,
-{
-    reader: R,
+pub struct ReaderInner {
+    file: Arc<File>,
+    offset: u64,
     buf: Vec<u8>,
 }
 
-impl<R> ReaderInner<R>
+fn make_io_error<E>(e: E) -> io::Error
 where
-    R: AsyncRead + Unpin,
+    E: Into<Box<dyn std::error::Error + Send + Sync>>,
 {
-    async fn private_read(mut self, n: usize) -> (Self, io::Result<usize>) {
+    io::Error::new(io::ErrorKind::Other, e)
+}
+
+impl ReaderInner {
+    async fn read_internal(&mut self, n: usize) -> io::Result<usize> {
         tracing::debug!("waiting...");
         tokio::time::delay_for(Duration::from_millis(200)).await;
         tracing::debug!("reading!");
@@ -31,24 +36,32 @@ where
             self.buf.push(0);
         }
 
-        let res = self.reader.read(&mut self.buf[..n]).await;
-        (self, res)
+        let req = self
+            .file
+            .client
+            .request(Method::GET, self.file.url.clone())
+            .header("range", format!("bytes={}-", self.offset))
+            .build()
+            .map_err(make_io_error)?;
+
+        let res = self.file.client.execute(req).map_err(make_io_error).await?;
+        let mut reader = response_reader::as_reader(res);
+
+        let res = reader.read(&mut self.buf[..n]).await;
+        if let Ok(n) = &res {
+            self.offset += *n as u64;
+        }
+        res
     }
 }
 
-enum State<R>
-where
-    R: AsyncRead + Unpin + 'static,
-{
-    Idle(ReaderInner<R>),
-    Pending(Pin<Box<dyn Future<Output = (ReaderInner<R>, io::Result<usize>)> + 'static>>),
+enum State {
+    Idle(ReaderInner),
+    Pending(Pin<Box<dyn Future<Output = (ReaderInner, io::Result<usize>)> + 'static>>),
     Transitional,
 }
 
-impl<R> fmt::Debug for State<R>
-where
-    R: AsyncRead + Unpin,
-{
+impl fmt::Debug for State {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             State::Idle(_) => write!(f, "Idle")?,
@@ -59,40 +72,29 @@ where
     }
 }
 
-pub struct Reader2<R>
-where
-    R: AsyncRead + Unpin + 'static,
-{
-    state: State<R>,
+pub struct Reader2 {
+    state: State,
 }
 
-impl<R> Reader2<R>
-where
-    R: AsyncRead + Unpin,
-{
-    pub fn new(reader: R) -> Self {
+impl Reader2 {
+    pub fn new(file: Arc<File>, offset: u64) -> Self {
         Self {
             state: State::Idle(ReaderInner {
-                reader,
+                file,
+                offset,
                 buf: Default::default(),
             }),
         }
     }
 }
 
-impl<R> Debug for Pin<&mut Reader2<R>>
-where
-    R: AsyncRead + Unpin,
-{
+impl Debug for Pin<&mut Reader2> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "Reader(State={:?})", self.state)
     }
 }
 
-impl<R> AsyncRead for Reader2<R>
-where
-    R: AsyncRead + Unpin,
-{
+impl AsyncRead for Reader2 {
     #[tracing::instrument(skip(cx))]
     fn poll_read(
         mut self: Pin<&mut Self>,
@@ -102,7 +104,13 @@ where
         let mut state = State::Transitional;
         std::mem::swap(&mut self.state, &mut state);
         let mut fut = match state {
-            State::Idle(r) => Box::pin(r.private_read(buf.len())),
+            State::Idle(mut r) => {
+                let len = buf.len();
+                Box::pin(async move {
+                    let res = r.read_internal(len).await;
+                    (r, res)
+                })
+            }
             State::Pending(fut) => fut,
             State::Transitional => unreachable!(),
         };

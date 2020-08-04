@@ -5,7 +5,7 @@ use color_eyre::Report;
 use futures::io::AsyncRead;
 use futures::lock::Mutex;
 use reqwest::Method;
-use std::{collections::HashMap, fmt};
+use std::{collections::HashMap, fmt, sync::Arc};
 use url::Url;
 
 mod reader;
@@ -41,7 +41,7 @@ impl fmt::Debug for File {
 
 impl File {
     #[tracing::instrument]
-    pub async fn new(url: Url) -> Result<Self, Report> {
+    pub async fn new(url: Url) -> Result<Arc<Self>, Report> {
         let client = reqwest::Client::new();
         let req = client
             .request(Method::GET, url.clone())
@@ -66,26 +66,27 @@ impl File {
             connections,
             blocks: Default::default(),
         };
-        Ok(f)
+        Ok(Arc::new(f))
     }
 
-    pub async fn get_reader(&self, offset: u64) -> Result<impl AsyncRead, Report> {
+    pub async fn get_reader(self: &Arc<Self>, offset: u64) -> Result<impl AsyncRead, Report> {
         if offset > self.size {
             Err(Error::ReadAfterEnd {
                 file_end: self.size,
                 requested: offset,
             })?
         } else {
-            let req = self
-                .client
-                .request(Method::GET, self.url.clone())
-                .header("range", format!("bytes={}-", offset))
-                .build()?;
-            let res = self.client.execute(req).await?;
-            let reader = response_reader::as_reader(res);
-            let reader = Reader2::new(reader);
+            // let req = self
+            //     .client
+            //     .request(Method::GET, self.url.clone())
+            //     .header("range", format!("bytes={}-", offset))
+            //     .build()?;
+            // let res = self.client.execute(req).await?;
+            // let reader = response_reader::as_reader(res);
+            // let reader = Reader2::new(Arc::clone(self), reader);
+            // Ok(reader)
 
-            Ok(reader)
+            Ok(Reader2::new(Arc::clone(self), offset))
         }
     }
 
