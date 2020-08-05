@@ -1,5 +1,5 @@
 use argh::FromArgs;
-use futures::prelude::*;
+use htfs::async_read_at::*;
 use humansize::{file_size_opts, FileSize};
 use rc_zip::ArchiveReaderResult;
 use std::io::Cursor;
@@ -42,14 +42,14 @@ async fn main() -> eyre::Result<()> {
     color_eyre::install().unwrap();
 
     let args: Args = argh::from_env();
-    let f = htfs::File::new(args.url).await?;
+    let f = htfs::File::new(args.url).await?.into_async_read_at();
+
+    let mut buf = vec![0u8; 1024];
 
     let mut ar = rc_zip::ArchiveReader::new(f.size());
     let archive = loop {
         if let Some(offset) = ar.wants_read() {
-            let mut or = f.get_reader(offset).await?;
-            let mut buf = vec![0u8; 256];
-            let n = or.read(&mut buf).await?;
+            let n = f.read_at(offset, &mut buf[..]).await?;
             let mut cursor = Cursor::new(&buf[..n]);
             ar.read(&mut cursor)?;
         }

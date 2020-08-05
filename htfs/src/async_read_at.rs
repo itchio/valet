@@ -6,12 +6,14 @@ use std::io;
 #[async_trait(?Send)]
 pub trait AsyncReadAt {
     async fn read_at(&self, offset: u64, buf: &mut [u8]) -> io::Result<usize>;
+    fn size(&self) -> u64;
 }
 
 #[async_trait(?Send)]
 pub trait GetReaderAt {
     type Reader: AsyncRead;
     async fn get_reader_at(&self, offset: u64) -> io::Result<Self::Reader>;
+    fn size(&self) -> u64;
 }
 
 pub trait IntoAsyncReadAt {
@@ -43,5 +45,8 @@ where
 {
     async fn read_at(&self, offset: u64, buf: &mut [u8]) -> io::Result<usize> {
         self.inner.get_reader_at(offset).await?.read(buf).await
+    }
+    fn size(&self) -> u64 {
+        self.inner.size()
     }
 }

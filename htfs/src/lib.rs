@@ -94,4 +94,8 @@ impl GetReaderAt for File {
             Ok(Reader::new(self.core.clone(), offset))
         }
     }
+
+    fn size(&self) -> u64 {
+        self.core.size
+    }
 }
