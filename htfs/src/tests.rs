@@ -34,7 +34,10 @@ async fn some_test_inner() -> Result<(), Report> {
         tx.send(()).unwrap();
     }
 
-    let (addr, server) = test_server::start(rx).await?;
+    let data: Vec<u8> = "realbodyshop".into();
+    let data = Arc::new(data);
+
+    let (addr, server) = test_server::start(data.clone(), rx).await?;
     tokio::spawn(async {
         server.await;
     });
@@ -61,26 +64,40 @@ async fn some_test_inner() -> Result<(), Report> {
 mod test_server {
     use bytes::Bytes;
     use color_eyre::Report;
-    use futures::future::BoxFuture;
+    use futures::{future::BoxFuture, task, Future};
     use http_serve::Entity;
-    use hyper::service::{make_service_fn, service_fn};
-    use hyper::{header::HeaderValue, Body, HeaderMap, Request, Response, Server};
+    use hyper::service::{make_service_fn, service_fn, Service};
+    use hyper::{
+        header::HeaderValue, server::conn::AddrStream, Body, HeaderMap, Request, Response, Server,
+    };
     use std::convert::Infallible;
-    use std::{error::Error as StdError, net::SocketAddr};
+    use std::{error::Error as StdError, net::SocketAddr, sync::Arc};
+    use task::Poll;
 
-    async fn hello(req: Request<Body>) -> Result<Response<Body>, Infallible> {
-        let entity = StrEntity {
-            s: "realbodyshop",
+    async fn hello(req: Request<Body>, data: Arc<Vec<u8>>) -> Result<Response<Body>, Infallible> {
+        let entity = SliceEntity {
+            data,
             phantom: Default::default(),
         };
         let res = http_serve::serve(entity, &req);
         Ok(res)
     }
 
-    pub(crate) async fn start(
-        rx: tokio::sync::oneshot::Receiver<()>,
-    ) -> Result<(SocketAddr, BoxFuture<'static, ()>), Report> {
-        let make_svc = make_service_fn(|_conn| async { Ok::<_, Infallible>(service_fn(hello)) });
+    pub(crate) async fn start<'a>(
+        data: Arc<Vec<u8>>,
+        cancel_signal: tokio::sync::oneshot::Receiver<()>,
+    ) -> Result<(SocketAddr, BoxFuture<'a, ()>), Report> {
+        // let make_svc = MyService {
+        //     data,
+        //     f: |data, _conn: &AddrStream| async move {
+        //         Ok::<_, Infallible>(service_fn(move |req| hello(req, Arc::clone(&data))))
+        //     },
+        // };
+
+        let make_svc = make_service_fn(move |_| {
+            let data = data.clone();
+            async move { Ok::<_, Infallible>(service_fn(move |req| hello(req, data.clone()))) }
+        });
 
         let addr = ([127, 0, 0, 1], 0).into();
         let server = Server::bind(&addr).serve(make_svc);
@@ -89,7 +106,7 @@ mod test_server {
         println!("Listening on http://{}", server.local_addr());
 
         let server = server.with_graceful_shutdown(async {
-            rx.await.ok();
+            cancel_signal.await.ok();
         });
 
         let fut = async move {
@@ -98,7 +115,33 @@ mod test_server {
         Ok((addr, Box::pin(fut)))
     }
 
-    struct StrEntity<E>
+    #[derive(Clone)]
+    struct MyService<T, F> {
+        data: T,
+        f: F,
+    }
+
+    impl<'t, T, F, Ret, Target, Svc, MkErr> Service<&'t Target> for MyService<T, F>
+    where
+        T: Clone,
+        F: FnMut(T, &Target) -> Ret,
+        Ret: Future<Output = Result<Svc, MkErr>>,
+        MkErr: Into<Box<dyn StdError + Send + Sync>>,
+    {
+        type Error = MkErr;
+        type Response = Svc;
+        type Future = Ret;
+
+        fn poll_ready(&mut self, _cx: &mut task::Context<'_>) -> Poll<Result<(), Self::Error>> {
+            Poll::Ready(Ok(()))
+        }
+
+        fn call(&mut self, target: &'t Target) -> Self::Future {
+            (self.f)(self.data.clone(), target)
+        }
+    }
+
+    struct SliceEntity<E>
     where
         E: 'static
             + Send
@@ -106,11 +149,11 @@ mod test_server {
             + Into<Box<dyn StdError + Send + Sync>>
             + From<Box<dyn StdError + Send + Sync>>,
     {
-        s: &'static str,
+        data: Arc<Vec<u8>>,
         phantom: std::marker::PhantomData<E>,
     }
 
-    impl<E> Entity for StrEntity<E>
+    impl<E> Entity for SliceEntity<E>
     where
         E: 'static
             + Send
@@ -122,7 +165,7 @@ mod test_server {
         type Data = Bytes;
 
         fn len(&self) -> u64 {
-            self.s.as_bytes().len() as u64
+            self.data.len() as u64
         }
 
         fn get_range(
@@ -130,7 +173,7 @@ mod test_server {
             range: std::ops::Range<u64>,
         ) -> Box<dyn futures::Stream<Item = Result<Self::Data, Self::Error>> + Send + Sync>
         {
-            let buf = Bytes::from(&self.s.as_bytes()[range.start as usize..range.end as usize]);
+            let buf = Bytes::copy_from_slice(&self.data[range.start as usize..range.end as usize]);
             Box::new(futures::stream::once(async move { Ok(buf) }))
         }
         fn add_headers(&self, headers: &mut HeaderMap) {
