@@ -60,7 +60,7 @@ async fn some_test_inner() -> Result<(), Report> {
     for &index in indices {
         let index = index as usize;
         let range = (index * buf.len())..((index + 1) * buf.len());
-        let mut reader = f.get_reader(range.start.try_into().unwrap()).await?;
+        let mut reader = f.get_reader_at(range.start.try_into().unwrap()).await?;
         reader.read_exact(&mut buf).await?;
 
         assert_eq!(buf, &data[range]);

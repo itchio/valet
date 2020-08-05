@@ -1,4 +1,4 @@
-use crate::{conn::Conn, response_reader, File};
+use crate::{conn::Conn, errors::make_io_error, response_reader, FileCore};
 use futures::io::AsyncRead;
 use futures::prelude::*;
 use reqwest::Method;
@@ -11,16 +11,9 @@ use std::{
 };
 
 pub struct ReaderInner {
-    file: Arc<File>,
+    file: Arc<FileCore>,
     offset: u64,
     buf: Vec<u8>,
-}
-
-fn make_io_error<E>(e: E) -> io::Error
-where
-    E: Into<Box<dyn std::error::Error + Send + Sync>>,
-{
-    io::Error::new(io::ErrorKind::Other, e)
 }
 
 impl ReaderInner {
@@ -94,12 +87,12 @@ impl fmt::Debug for State {
     }
 }
 
-pub struct Reader2 {
+pub struct Reader {
     state: State,
 }
 
-impl Reader2 {
-    pub fn new(file: Arc<File>, offset: u64) -> Self {
+impl Reader {
+    pub(crate) fn new(file: Arc<FileCore>, offset: u64) -> Self {
         Self {
             state: State::Idle(ReaderInner {
                 file,
@@ -110,13 +103,13 @@ impl Reader2 {
     }
 }
 
-impl Debug for Pin<&mut Reader2> {
+impl Debug for Pin<&mut Reader> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "Reader(State={:?})", self.state)
     }
 }
 
-impl AsyncRead for Reader2 {
+impl AsyncRead for Reader {
     fn poll_read(
         mut self: Pin<&mut Self>,
         cx: &mut Context<'_>,

@@ -1,18 +1,19 @@
-#![allow(dead_code)]
-#![allow(unused_variables)]
-
+use async_trait::async_trait;
 use color_eyre::Report;
-use futures::io::AsyncRead;
 use futures::lock::Mutex;
 use reqwest::Method;
-use std::{collections::HashMap, fmt, sync::Arc};
+use std::{fmt, sync::Arc};
 use url::Url;
 
 mod reader;
-use reader::Reader2;
+use reader::Reader;
 mod conn;
 mod response_reader;
 use conn::Conn;
+mod async_buf_read;
+use async_buf_read::*;
+use errors::make_io_error;
+pub(crate) mod errors;
 mod rand_id;
 
 #[cfg(test)]
@@ -27,22 +28,25 @@ pub enum Error {
 }
 
 pub struct File {
+    core: Arc<FileCore>,
+}
+
+struct FileCore {
     client: reqwest::Client,
     url: Url,
     size: u64,
     connections: Mutex<Vec<Conn<'static>>>,
-    blocks: Mutex<HashMap<u64, Vec<u8>>>,
 }
 
 impl fmt::Debug for File {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "htfs::File({:?})", self.url)
+        write!(f, "htfs::File({:?})", self.core.url)
     }
 }
 
 impl File {
     #[tracing::instrument]
-    pub async fn new(url: Url) -> Result<Arc<Self>, Report> {
+    pub async fn new(url: Url) -> Result<Self, Report> {
         let client = reqwest::Client::new();
         let req = client
             .request(Method::GET, url.clone())
@@ -60,38 +64,34 @@ impl File {
             connections.push(Conn::new(response_reader::as_reader(res), 0));
         }
 
-        let f = Self {
+        let core = FileCore {
             client,
             url,
             size,
             connections,
-            blocks: Default::default(),
         };
-        Ok(Arc::new(f))
-    }
-
-    pub async fn get_reader(self: &Arc<Self>, offset: u64) -> Result<impl AsyncRead, Report> {
-        if offset > self.size {
-            Err(Error::ReadAfterEnd {
-                file_end: self.size,
-                requested: offset,
-            })?
-        } else {
-            // let req = self
-            //     .client
-            //     .request(Method::GET, self.url.clone())
-            //     .header("range", format!("bytes={}-", offset))
-            //     .build()?;
-            // let res = self.client.execute(req).await?;
-            // let reader = response_reader::as_reader(res);
-            // let reader = Reader2::new(Arc::clone(self), reader);
-            // Ok(reader)
-
-            Ok(Reader2::new(Arc::clone(self), offset))
-        }
+        Ok(Self {
+            core: Arc::new(core),
+        })
     }
 
     pub fn size(&self) -> u64 {
-        self.size
+        self.core.size
+    }
+}
+
+#[async_trait(?Send)]
+impl GetReaderAt for File {
+    type Reader = Reader;
+
+    async fn get_reader_at(&self, offset: u64) -> std::io::Result<Self::Reader> {
+        if offset > self.core.size {
+            Err(make_io_error(Error::ReadAfterEnd {
+                file_end: self.core.size,
+                requested: offset,
+            }))?
+        } else {
+            Ok(Reader::new(self.core.clone(), offset))
+        }
     }
 }
