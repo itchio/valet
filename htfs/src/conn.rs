@@ -1,7 +1,9 @@
+use crate::rand_id::RandID;
 use futures::{AsyncRead, AsyncReadExt};
 use std::{io, pin::Pin};
 
 pub struct Conn<'a> {
+    pub id: RandID,
     pub inner: Pin<Box<dyn AsyncRead + 'a>>,
     pub offset: u64,
 }
@@ -12,12 +14,13 @@ impl<'a> Conn<'a> {
         R: AsyncRead + 'a,
     {
         Self {
+            id: Default::default(),
             inner: Box::pin(inner),
             offset,
         }
     }
 
-    async fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+    pub async fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
         let res = self.inner.read(buf).await;
         if let Ok(n) = &res {
             let n = *n;

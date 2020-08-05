@@ -1,4 +1,4 @@
-use crate::{response_reader, File};
+use crate::{conn::Conn, response_reader, File};
 use futures::io::AsyncRead;
 use futures::prelude::*;
 use reqwest::Method;
@@ -26,28 +26,52 @@ where
 
 impl ReaderInner {
     async fn read_internal(&mut self, n: usize) -> io::Result<usize> {
-        tracing::debug!("waiting...");
-        tokio::time::delay_for(Duration::from_millis(200)).await;
-        tracing::debug!("reading!");
-
         self.buf.clear();
         self.buf.reserve(n);
         for i in 0..n {
             self.buf.push(0);
         }
 
-        let req = self
-            .file
-            .client
-            .request(Method::GET, self.file.url.clone())
-            .header("range", format!("bytes={}-", self.offset))
-            .build()
-            .map_err(make_io_error)?;
+        let mut conn = {
+            let mut conns = self.file.connections.lock().await;
+            let candidate = conns.iter().enumerate().find_map(|(i, conn)| {
+                if conn.offset == self.offset {
+                    Some(i)
+                } else {
+                    None
+                }
+            });
 
-        let res = self.file.client.execute(req).map_err(make_io_error).await?;
-        let mut reader = response_reader::as_reader(res);
+            match candidate {
+                Some(index) => {
+                    let conn = conns.remove(index);
+                    tracing::debug!("re-using conn {:?}", conn.id);
+                    conn
+                }
+                None => {
+                    tracing::debug!("making fresh conn");
+                    let req = self
+                        .file
+                        .client
+                        .request(Method::GET, self.file.url.clone())
+                        .header("range", format!("bytes={}-", self.offset))
+                        .build()
+                        .map_err(make_io_error)?;
+                    let res = self.file.client.execute(req).map_err(make_io_error).await?;
+                    let reader = response_reader::as_reader(res);
+                    let conn = Conn::new(reader, self.offset);
+                    tracing::debug!("made fresh conn {:?}", conn.id);
+                    conn
+                }
+            }
+        };
 
-        let res = reader.read(&mut self.buf[..n]).await;
+        let res = conn.read(&mut self.buf[..n]).await;
+        {
+            let mut conns = self.file.connections.lock().await;
+            conns.push(conn);
+        }
+
         if let Ok(n) = &res {
             self.offset += *n as u64;
         }
@@ -95,7 +119,6 @@ impl Debug for Pin<&mut Reader2> {
 }
 
 impl AsyncRead for Reader2 {
-    #[tracing::instrument(skip(cx))]
     fn poll_read(
         mut self: Pin<&mut Self>,
         cx: &mut Context<'_>,

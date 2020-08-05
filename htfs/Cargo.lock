@@ -390,6 +390,8 @@ dependencies = [
  "futures-timer",
  "futures-util",
  "log",
+ "once_cell",
+ "oorandom",
  "reqwest",
  "thiserror",
  "tokio",
@@ -731,6 +733,12 @@ name = "once_cell"
 version = "1.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0b631f7e854af39a1739f401cf34a8a013dfe09eac4fa4dba91e9768bd28168d"
+
+[[package]]
+name = "oorandom"
+version = "11.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a170cebd8021a008ea92e4db85a72f80b35df514ec664b296fdcbb654eac0b2c"
 
 [[package]]
 name = "openssl"

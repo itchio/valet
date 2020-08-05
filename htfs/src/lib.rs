@@ -13,6 +13,7 @@ use reader::Reader2;
 mod conn;
 mod response_reader;
 use conn::Conn;
+mod rand_id;
 
 #[cfg(test)]
 mod tests;

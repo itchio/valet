@@ -32,11 +32,12 @@ async fn some_test_inner() -> Result<(), Report> {
     let f = File::new(u).await?;
 
     let mut buf = vec![0u8; 7];
-    let mut reader = f.get_reader(34).await?;
 
-    let slices = &["<title>", "Example", " Domain"];
+    let initial_offset = 34;
+    let slices = &[(0, "<title>"), (2, " Domain"), (1, "Example")];
 
-    for (i, &slice) in slices.iter().enumerate() {
+    for (i, slice) in slices.iter() {
+        let mut reader = f.get_reader(34 + 7 * i).await?;
         reader.read_exact(&mut buf).await?;
         let s = String::from_utf8_lossy(&buf[..]);
         log::info!("{:?}", s);
