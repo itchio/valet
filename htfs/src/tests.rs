@@ -1,6 +1,8 @@
 use crate::*;
 use futures::io::AsyncReadExt;
+use oorandom::Rand32;
 use scopeguard::defer;
+use std::convert::TryInto;
 
 fn install_tracing() {
     use tracing_error::ErrorLayer;
@@ -34,7 +36,13 @@ async fn some_test_inner() -> Result<(), Report> {
         tx.send(()).unwrap();
     }
 
-    let data: Vec<u8> = "realbodyshop".into();
+    let mut rand = Rand32::new(0xF00D);
+    let size = 4 * 1024;
+    let mut data = Vec::with_capacity(size);
+
+    for i in 0..size {
+        data.push(rand.rand_range(0..256) as u8);
+    }
     let data = Arc::new(data);
 
     let (addr, server) = test_server::start(data.clone(), rx).await?;
@@ -46,16 +54,16 @@ async fn some_test_inner() -> Result<(), Report> {
     u.set_port(Some(addr.port())).unwrap();
     let f = File::new(u).await?;
 
-    let mut buf = vec![0u8; 4];
+    let mut buf = vec![0u8; 100];
+    let indices = &[0, 1, 3, 4, 2, 3];
 
-    let slices = &[(0, "real"), (2, "shop"), (1, "body")];
-
-    for (i, slice) in slices.iter() {
-        let mut reader = f.get_reader(4 * i).await?;
+    for &index in indices {
+        let index = index as usize;
+        let range = (index * buf.len())..((index + 1) * buf.len());
+        let mut reader = f.get_reader(range.start.try_into().unwrap()).await?;
         reader.read_exact(&mut buf).await?;
-        let s = String::from_utf8_lossy(&buf[..]);
-        log::info!("{:?}", s);
-        assert_eq!(&s, slice);
+
+        assert_eq!(buf, &data[range]);
     }
 
     Ok(())
@@ -71,7 +79,10 @@ mod test_server {
     use std::convert::Infallible;
     use std::{error::Error as StdError, net::SocketAddr, sync::Arc};
 
-    async fn hello(req: Request<Body>, data: Arc<Vec<u8>>) -> Result<Response<Body>, Infallible> {
+    async fn hello<T>(req: Request<Body>, data: Arc<T>) -> Result<Response<Body>, Infallible>
+    where
+        T: Clone + Sync + Send + AsRef<[u8]> + 'static,
+    {
         let entity = SliceEntity {
             data,
             phantom: Default::default(),
@@ -80,10 +91,13 @@ mod test_server {
         Ok(res)
     }
 
-    pub(crate) async fn start<'a>(
-        data: Arc<Vec<u8>>,
+    pub(crate) async fn start<T>(
+        data: Arc<T>,
         cancel_signal: tokio::sync::oneshot::Receiver<()>,
-    ) -> Result<(SocketAddr, BoxFuture<'a, ()>), Report> {
+    ) -> Result<(SocketAddr, BoxFuture<'static, ()>), Report>
+    where
+        T: Clone + Send + Sync + AsRef<[u8]> + 'static,
+    {
         let make_svc = make_service_fn(move |_| {
             let data = data.clone();
             async move { Ok::<_, Infallible>(service_fn(move |req| hello(req, data.clone()))) }
@@ -105,20 +119,14 @@ mod test_server {
         Ok((addr, Box::pin(fut)))
     }
 
-    struct SliceEntity<E>
-    where
-        E: 'static
-            + Send
-            + Sync
-            + Into<Box<dyn StdError + Send + Sync>>
-            + From<Box<dyn StdError + Send + Sync>>,
-    {
-        data: Arc<Vec<u8>>,
+    struct SliceEntity<T, E> {
+        data: Arc<T>,
         phantom: std::marker::PhantomData<E>,
     }
 
-    impl<E> Entity for SliceEntity<E>
+    impl<T, E> Entity for SliceEntity<T, E>
     where
+        T: Clone + Sync + Send + AsRef<[u8]> + 'static,
         E: 'static
             + Send
             + Sync
@@ -129,7 +137,7 @@ mod test_server {
         type Data = Bytes;
 
         fn len(&self) -> u64 {
-            self.data.len() as u64
+            self.data.as_ref().as_ref().len() as u64
         }
 
         fn get_range(
@@ -137,7 +145,9 @@ mod test_server {
             range: std::ops::Range<u64>,
         ) -> Box<dyn futures::Stream<Item = Result<Self::Data, Self::Error>> + Send + Sync>
         {
-            let buf = Bytes::copy_from_slice(&self.data[range.start as usize..range.end as usize]);
+            let buf = Bytes::copy_from_slice(
+                &self.data.as_ref().as_ref()[range.start as usize..range.end as usize],
+            );
             Box::new(futures::stream::once(async move { Ok(buf) }))
         }
         fn add_headers(&self, headers: &mut HeaderMap) {
