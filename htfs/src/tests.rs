@@ -64,15 +64,12 @@ async fn some_test_inner() -> Result<(), Report> {
 mod test_server {
     use bytes::Bytes;
     use color_eyre::Report;
-    use futures::{future::BoxFuture, task, Future};
+    use futures::future::BoxFuture;
     use http_serve::Entity;
-    use hyper::service::{make_service_fn, service_fn, Service};
-    use hyper::{
-        header::HeaderValue, server::conn::AddrStream, Body, HeaderMap, Request, Response, Server,
-    };
+    use hyper::service::{make_service_fn, service_fn};
+    use hyper::{header::HeaderValue, Body, HeaderMap, Request, Response, Server};
     use std::convert::Infallible;
     use std::{error::Error as StdError, net::SocketAddr, sync::Arc};
-    use task::Poll;
 
     async fn hello(req: Request<Body>, data: Arc<Vec<u8>>) -> Result<Response<Body>, Infallible> {
         let entity = SliceEntity {
@@ -87,13 +84,6 @@ mod test_server {
         data: Arc<Vec<u8>>,
         cancel_signal: tokio::sync::oneshot::Receiver<()>,
     ) -> Result<(SocketAddr, BoxFuture<'a, ()>), Report> {
-        // let make_svc = MyService {
-        //     data,
-        //     f: |data, _conn: &AddrStream| async move {
-        //         Ok::<_, Infallible>(service_fn(move |req| hello(req, Arc::clone(&data))))
-        //     },
-        // };
-
         let make_svc = make_service_fn(move |_| {
             let data = data.clone();
             async move { Ok::<_, Infallible>(service_fn(move |req| hello(req, data.clone()))) }
@@ -113,32 +103,6 @@ mod test_server {
             server.await.unwrap();
         };
         Ok((addr, Box::pin(fut)))
-    }
-
-    #[derive(Clone)]
-    struct MyService<T, F> {
-        data: T,
-        f: F,
-    }
-
-    impl<'t, T, F, Ret, Target, Svc, MkErr> Service<&'t Target> for MyService<T, F>
-    where
-        T: Clone,
-        F: FnMut(T, &Target) -> Ret,
-        Ret: Future<Output = Result<Svc, MkErr>>,
-        MkErr: Into<Box<dyn StdError + Send + Sync>>,
-    {
-        type Error = MkErr;
-        type Response = Svc;
-        type Future = Ret;
-
-        fn poll_ready(&mut self, _cx: &mut task::Context<'_>) -> Poll<Result<(), Self::Error>> {
-            Poll::Ready(Ok(()))
-        }
-
-        fn call(&mut self, target: &'t Target) -> Self::Future {
-            (self.f)(self.data.clone(), target)
-        }
     }
 
     struct SliceEntity<E>
