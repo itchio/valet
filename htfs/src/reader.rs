@@ -8,7 +8,6 @@ use std::{
     pin::Pin,
     sync::Arc,
     task::{Context, Poll},
-    time::Duration,
 };
 
 pub struct ReaderInner {
@@ -45,11 +44,10 @@ impl ReaderInner {
             match candidate {
                 Some(index) => {
                     let conn = conns.remove(index);
-                    tracing::debug!("re-using conn {:?}", conn.id);
+                    tracing::debug!("{:?}: re-using", conn);
                     conn
                 }
                 None => {
-                    tracing::debug!("making fresh conn");
                     let req = self
                         .file
                         .client
@@ -60,7 +58,7 @@ impl ReaderInner {
                     let res = self.file.client.execute(req).map_err(make_io_error).await?;
                     let reader = response_reader::as_reader(res);
                     let conn = Conn::new(reader, self.offset);
-                    tracing::debug!("made fresh conn {:?}", conn.id);
+                    tracing::debug!("{:?}: established", conn);
                     conn
                 }
             }

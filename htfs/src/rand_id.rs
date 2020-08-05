@@ -23,6 +23,6 @@ impl Default for RandID {
 
 impl fmt::Debug for RandID {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "[{:x}]", self.0)
+        write!(f, "{:x}", self.0)
     }
 }

@@ -1,6 +1,6 @@
 use crate::rand_id::RandID;
 use futures::{AsyncRead, AsyncReadExt};
-use std::{io, pin::Pin};
+use std::{fmt, io, pin::Pin};
 
 pub struct Conn<'a> {
     pub id: RandID,
@@ -27,5 +27,11 @@ impl<'a> Conn<'a> {
             self.offset += n as u64;
         }
         res
+    }
+}
+
+impl<'a> fmt::Debug for Conn<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "Conn({:?} @ {})", self.id, self.offset)
     }
 }

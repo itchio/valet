@@ -26,3 +26,6 @@ once_cell = "1.4.0"
 
 [dev-dependencies]
 tracing-subscriber = "0.2.9"
+hyper = "0.13.7"
+http-serve = { git = "https://github.com/scottlamb/http-serve", rev = "9f583a1cc9c6c2d9dd5424d41237e59a2d011e1f" }
+http-body = "0.3.1"
