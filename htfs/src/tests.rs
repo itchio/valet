@@ -1,5 +1,4 @@
 use crate::*;
-use futures::io::AsyncReadExt;
 use oorandom::Rand32;
 use scopeguard::defer;
 use std::convert::TryInto;
@@ -53,6 +52,7 @@ async fn some_test_inner() -> Result<(), Report> {
     let mut u: Url = "http://localhost/".parse().unwrap();
     u.set_port(Some(addr.port())).unwrap();
     let f = File::new(u).await?;
+    let f = f.into_async_read_at();
 
     let mut buf = vec![0u8; 100];
     let indices = &[0, 1, 3, 4, 2, 3];
@@ -60,9 +60,7 @@ async fn some_test_inner() -> Result<(), Report> {
     for &index in indices {
         let index = index as usize;
         let range = (index * buf.len())..((index + 1) * buf.len());
-        let mut reader = f.get_reader_at(range.start.try_into().unwrap()).await?;
-        reader.read_exact(&mut buf).await?;
-
+        f.read_at(range.start.try_into().unwrap(), &mut buf).await?;
         assert_eq!(buf, &data[range]);
     }
 

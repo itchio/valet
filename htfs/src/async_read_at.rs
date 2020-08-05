@@ -14,7 +14,7 @@ pub trait GetReaderAt {
     async fn get_reader_at(&self, offset: u64) -> io::Result<Self::Reader>;
 }
 
-pub trait IntoAsyncReadAt: Send {
+pub trait IntoAsyncReadAt {
     type Out: AsyncReadAt;
 
     fn into_async_read_at(self) -> Self::Out;
@@ -22,7 +22,7 @@ pub trait IntoAsyncReadAt: Send {
 
 impl<T> IntoAsyncReadAt for T
 where
-    T: GetReaderAt + Send,
+    T: GetReaderAt,
     <T as GetReaderAt>::Reader: std::marker::Unpin,
 {
     type Out = Wrapper<T>;
