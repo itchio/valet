@@ -51,7 +51,7 @@ async fn some_test_inner() -> Result<(), Report> {
 
     let mut u: Url = "http://localhost/".parse().unwrap();
     u.set_port(Some(addr.port())).unwrap();
-    let f = File::new(u).await?;
+    let f = Resource::new(u).await?;
     let f = f.into_async_read_at();
 
     let mut buf = vec![0u8; 100];

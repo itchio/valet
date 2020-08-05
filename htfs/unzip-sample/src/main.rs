@@ -42,7 +42,7 @@ async fn main() -> eyre::Result<()> {
     color_eyre::install().unwrap();
 
     let args: Args = argh::from_env();
-    let f = htfs::File::new(args.url).await?.into_async_read_at();
+    let f = htfs::Resource::new(args.url).await?.into_async_read_at();
 
     let mut buf = vec![0u8; 1024];
 

@@ -1,7 +1,6 @@
-use crate::{conn::Conn, errors::make_io_error, response_reader, FileCore};
+use crate::{errors::make_io_error, ResourceInner};
 use futures::io::AsyncRead;
 use futures::prelude::*;
-use reqwest::Method;
 use std::{
     fmt::{self, Debug},
     io,
@@ -11,7 +10,7 @@ use std::{
 };
 
 pub struct ReaderInner {
-    file: Arc<FileCore>,
+    resource_inner: Arc<ResourceInner>,
     offset: u64,
     buf: Vec<u8>,
 }
@@ -24,44 +23,15 @@ impl ReaderInner {
             self.buf.push(0);
         }
 
-        let mut conn = {
-            let mut conns = self.file.connections.lock().await;
-            let candidate = conns.iter().enumerate().find_map(|(i, conn)| {
-                if conn.offset == self.offset {
-                    Some(i)
-                } else {
-                    None
-                }
-            });
-
-            match candidate {
-                Some(index) => {
-                    let conn = conns.remove(index);
-                    tracing::debug!("{:?}: re-using", conn);
-                    conn
-                }
-                None => {
-                    let req = self
-                        .file
-                        .client
-                        .request(Method::GET, self.file.url.clone())
-                        .header("range", format!("bytes={}-", self.offset))
-                        .build()
-                        .map_err(make_io_error)?;
-                    let res = self.file.client.execute(req).map_err(make_io_error).await?;
-                    let reader = response_reader::as_reader(res);
-                    let conn = Conn::new(reader, self.offset);
-                    tracing::debug!("{:?}: established", conn);
-                    conn
-                }
-            }
-        };
-
+        let mut conn = self
+            .resource_inner
+            .borrow_conn(self.offset)
+            .await
+            .map_err(make_io_error)?;
         let res = conn.read(&mut self.buf[..n]).await;
-        {
-            let mut conns = self.file.connections.lock().await;
-            conns.push(conn);
-        }
+
+        // TODO: should the conn be returned if there was a read error?
+        self.resource_inner.return_conn(conn).await;
 
         if let Ok(n) = &res {
             self.offset += *n as u64;
@@ -87,15 +57,15 @@ impl fmt::Debug for State {
     }
 }
 
-pub struct Reader {
+pub struct ResourceReader {
     state: State,
 }
 
-impl Reader {
-    pub(crate) fn new(file: Arc<FileCore>, offset: u64) -> Self {
+impl ResourceReader {
+    pub(crate) fn new(file: Arc<ResourceInner>, offset: u64) -> Self {
         Self {
             state: State::Idle(ReaderInner {
-                file,
+                resource_inner: file,
                 offset,
                 buf: Default::default(),
             }),
@@ -103,13 +73,13 @@ impl Reader {
     }
 }
 
-impl Debug for Pin<&mut Reader> {
+impl Debug for Pin<&mut ResourceReader> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "Reader(State={:?})", self.state)
     }
 }
 
-impl AsyncRead for Reader {
+impl AsyncRead for ResourceReader {
     fn poll_read(
         mut self: Pin<&mut Self>,
         cx: &mut Context<'_>,
