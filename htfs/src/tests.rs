@@ -40,7 +40,7 @@ async fn some_test_inner() -> Result<(), Report> {
     let size = 4 * 1024;
     let mut data = Vec::with_capacity(size);
 
-    for i in 0..size {
+    for _ in 0..size {
         data.push(rand.rand_range(0..256) as u8);
     }
     let data = Arc::new(data);

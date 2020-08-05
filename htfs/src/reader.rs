@@ -20,7 +20,7 @@ impl ReaderInner {
     async fn read_internal(&mut self, n: usize) -> io::Result<usize> {
         self.buf.clear();
         self.buf.reserve(n);
-        for i in 0..n {
+        for _ in 0..n {
             self.buf.push(0);
         }
 
