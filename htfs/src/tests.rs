@@ -1,5 +1,6 @@
 use crate::*;
 use futures::io::AsyncReadExt;
+use scopeguard::defer;
 
 fn install_tracing() {
     use tracing_error::ErrorLayer;
@@ -28,11 +29,18 @@ async fn some_test() {
 
 #[tracing::instrument]
 async fn some_test_inner() -> Result<(), Report> {
+    let (tx, rx) = tokio::sync::oneshot::channel::<()>();
+    defer! {
+        tx.send(()).unwrap();
+    }
+
+    let (addr, server) = test_server::start(rx).await?;
     tokio::spawn(async {
-        test_server::run().await.unwrap();
+        server.await;
     });
 
-    let u = "http://localhost:5000/".parse().unwrap();
+    let mut u: Url = "http://localhost/".parse().unwrap();
+    u.set_port(Some(addr.port())).unwrap();
     let f = File::new(u).await?;
 
     let mut buf = vec![0u8; 4];
@@ -53,11 +61,12 @@ async fn some_test_inner() -> Result<(), Report> {
 mod test_server {
     use bytes::Bytes;
     use color_eyre::Report;
+    use futures::future::BoxFuture;
     use http_serve::Entity;
     use hyper::service::{make_service_fn, service_fn};
     use hyper::{header::HeaderValue, Body, HeaderMap, Request, Response, Server};
     use std::convert::Infallible;
-    use std::error::Error as StdError;
+    use std::{error::Error as StdError, net::SocketAddr};
 
     async fn hello(req: Request<Body>) -> Result<Response<Body>, Infallible> {
         let entity = StrEntity {
@@ -68,16 +77,25 @@ mod test_server {
         Ok(res)
     }
 
-    pub(crate) async fn run() -> Result<(), Report> {
+    pub(crate) async fn start(
+        rx: tokio::sync::oneshot::Receiver<()>,
+    ) -> Result<(SocketAddr, BoxFuture<'static, ()>), Report> {
         let make_svc = make_service_fn(|_conn| async { Ok::<_, Infallible>(service_fn(hello)) });
 
-        let addr = ([127, 0, 0, 1], 5000).into();
+        let addr = ([127, 0, 0, 1], 0).into();
         let server = Server::bind(&addr).serve(make_svc);
 
-        println!("Listening on http://{}", addr);
-        server.await?;
+        let addr = server.local_addr();
+        println!("Listening on http://{}", server.local_addr());
 
-        Ok(())
+        let server = server.with_graceful_shutdown(async {
+            rx.await.ok();
+        });
+
+        let fut = async move {
+            server.await.unwrap();
+        };
+        Ok((addr, Box::pin(fut)))
     }
 
     struct StrEntity<E>
