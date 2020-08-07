@@ -44,10 +44,10 @@ where
     pub const DEFAULT_BUF_SIZE: usize = 1024;
 
     pub fn new(inner: R, range: Range<u64>) -> Result<Self, Error> {
-        Self::new_with_bufsize(inner, range, Self::DEFAULT_BUF_SIZE)
+        Self::with_buf_size(inner, range, Self::DEFAULT_BUF_SIZE)
     }
 
-    pub fn new_with_bufsize(inner: R, range: Range<u64>, bufsize: usize) -> Result<Self, Error> {
+    pub fn with_buf_size(inner: R, range: Range<u64>, bufsize: usize) -> Result<Self, Error> {
         if range.start > range.end {
             return Err(Error::BackwardsRange(range));
         }
