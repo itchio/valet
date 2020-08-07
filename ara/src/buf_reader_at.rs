@@ -57,10 +57,12 @@ where
 {
     async fn read_at(&self, offset: u64, buf: &mut [u8]) -> std::io::Result<usize> {
         let page_info = self.layout.page_at(offset).map_err(make_io_error)?;
+        tracing::trace!("asked for {:?}, page info is {:?}", offset, page_info);
         let read_size = std::cmp::min(buf.len(), page_info.remaining() as usize);
 
         let mut cache = self.cache.lock().await;
         if let Some(page_bytes) = cache.get(&page_info.number) {
+            tracing::trace!("cached read, read_size={}", read_size);
             for i in 0..read_size {
                 buf[i] = page_bytes[page_info.offset_in_page as usize + i];
             }
@@ -71,11 +73,13 @@ where
                 page_bytes.set_len(page_info.size as _);
             }
             self.inner
-                .read_at(page_info.page_start(), page_bytes.as_mut())
+                .read_at_exact(page_info.page_start(), page_bytes.as_mut())
                 .await?;
 
+            tracing::trace!("fresh read, read_size={}", read_size);
             for i in 0..read_size {
                 buf[i] = page_bytes[page_info.offset_in_page as usize + i];
+                tracing::trace!("buf[i] = {:x}", buf[i]);
             }
 
             cache.insert(page_info.number, page_bytes.into());

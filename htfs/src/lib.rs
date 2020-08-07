@@ -84,7 +84,9 @@ impl Resource {
         let size = self.size;
         let source = Arc::new(self);
 
-        BufReaderAt::new(ReadAtWrapper::new(source, size, initial_response))
+        let r = ReadAtWrapper::new(source, size, initial_response);
+        // let r = BufReaderAt::new(r);
+        r
     }
 
     async fn request(&self, offset: u64) -> Result<reqwest::Response, eyre::Error> {

@@ -74,7 +74,7 @@ trait IsSubset {
 
 impl IsSubset for Range<u64> {
     fn is_subset_of(&self, other: &Self) -> bool {
-        self.start >= other.end && self.end <= other.end
+        self.start >= other.start && self.end <= other.end
     }
 }
 

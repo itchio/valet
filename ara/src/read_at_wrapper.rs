@@ -83,7 +83,7 @@ where
     }
 
     async fn return_head(&self, head: Head<Source::Reader>) {
-        tracing::trace!("{:?} returning", head);
+        tracing::trace!("{:?}: returning", head);
         let mut heads = self.heads.lock().await;
 
         // returned heads are pushed to the back of the double-ended queue,
