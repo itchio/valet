@@ -1,4 +1,5 @@
 use crate::*;
+use color_eyre::eyre;
 use oorandom::Rand32;
 use scopeguard::defer;
 use std::convert::TryInto;
@@ -29,7 +30,7 @@ async fn some_test() {
 }
 
 #[tracing::instrument]
-async fn some_test_inner() -> Result<(), Report> {
+async fn some_test_inner() -> Result<(), eyre::Error> {
     let (tx, rx) = tokio::sync::oneshot::channel::<()>();
     defer! {
         tx.send(()).unwrap();
@@ -52,7 +53,7 @@ async fn some_test_inner() -> Result<(), Report> {
     let mut u: Url = "http://localhost/".parse().unwrap();
     u.set_port(Some(addr.port())).unwrap();
     let f = Resource::new(u).await?;
-    let f = f.into_async_read_at();
+    let f = f.into_read_at();
 
     let mut buf = vec![0u8; 100];
     let indices = &[0, 1, 3, 4, 2, 3];

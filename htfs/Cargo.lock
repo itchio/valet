@@ -43,6 +43,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "ara"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "bytes",
+ "futures",
+ "lru_time_cache",
+ "pin-project",
+ "thiserror",
+ "tracing",
+]
+
+[[package]]
 name = "arc-swap"
 version = "0.4.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -416,6 +429,7 @@ dependencies = [
 name = "htfs"
 version = "0.1.0"
 dependencies = [
+ "ara",
  "async-trait",
  "bytes",
  "color-eyre",
@@ -428,6 +442,7 @@ dependencies = [
  "log",
  "once_cell",
  "oorandom",
+ "pin-project",
  "reqwest",
  "scopeguard",
  "thiserror",
@@ -613,6 +628,12 @@ checksum = "4fabed175da42fed1fa0746b0ea71f412aa9d35e76e95e59b192c64b9dc2bf8b"
 dependencies = [
  "cfg-if",
 ]
+
+[[package]]
+name = "lru_time_cache"
+version = "0.10.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "adb241df5c4caeb888755363fc95f8a896618dc0d435e9e775f7930cb099beab"
 
 [[package]]
 name = "matchers"
@@ -1336,9 +1357,9 @@ checksum = "e987b6bf443f4b5b3b6f38704195592cca41c5bb7aedd3c3693c7081f8289860"
 
 [[package]]
 name = "tracing"
-version = "0.1.17"
+version = "0.1.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dbdf4ccd1652592b01286a5dbe1e2a77d78afaa34beadd9872a5f7396f92aaa9"
+checksum = "f0aae59226cf195d8e74d4b34beae1859257efb4e5fed3f147d2dc2c7d372178"
 dependencies = [
  "cfg-if",
  "log",
@@ -1359,9 +1380,9 @@ dependencies = [
 
 [[package]]
 name = "tracing-core"
-version = "0.1.11"
+version = "0.1.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "94ae75f0d28ae10786f3b1895c55fe72e79928fd5ccdebb5438c75e93fec178f"
+checksum = "d593f98af59ebc017c0648f0117525db358745a8894a8d684e185ba3f45954f9"
 dependencies = [
  "lazy_static",
 ]

@@ -1,16 +1,15 @@
 use async_trait::async_trait;
-use color_eyre::Report;
-use futures::lock::Mutex;
+use color_eyre::eyre;
+use futures::{AsyncRead, TryStreamExt};
 use reqwest::Method;
 use std::{fmt, sync::Arc};
 use url::Url;
 
-mod reader;
-use reader::ResourceReader;
-mod conn;
-use conn::Conn;
-pub mod async_read_at;
-use async_read_at::*;
+use ara::{
+    buf_reader_at::BufReaderAt,
+    read_at_wrapper::{GetReaderAt, ReadAtWrapper},
+    ReadAt,
+};
 use errors::make_io_error;
 pub(crate) mod errors;
 mod rand_id;
@@ -27,92 +26,68 @@ pub enum Error {
 }
 
 pub struct Resource {
-    inner: Arc<ResourceInner>,
-}
-
-struct ResourceInner {
     client: reqwest::Client,
     url: Url,
     size: u64,
-    connections: Mutex<Vec<Conn>>,
+    initial_response: Option<reqwest::Response>,
 }
 
 impl fmt::Debug for Resource {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "htfs::File({:?})", self.inner.url)
+        write!(f, "htfs::File({:?})", self.url)
     }
 }
 
 impl Resource {
     #[tracing::instrument]
-    pub async fn new(url: Url) -> Result<Self, Report> {
+    pub async fn new(url: Url) -> Result<Self, eyre::Error> {
         let client = reqwest::Client::new();
 
-        let mut inner = ResourceInner {
+        let mut resource = Resource {
             client,
             url,
             size: 0,
-            connections: Default::default(),
+            initial_response: None,
         };
 
-        let conn = inner.borrow_conn(0).await?;
-        let connections: Mutex<Vec<Conn>> = Default::default();
-
-        if let Some(header) = conn.headers.get("content-length") {
+        let res = resource.request(0).await?;
+        // TODO: switch back to res.content_length()
+        if let Some(header) = res.headers().get("content-length") {
             if let Ok(header) = header.to_str() {
                 if let Ok(size) = header.parse() {
-                    inner.size = size;
+                    resource.size = size;
                 }
             }
         };
 
-        if inner.size == 0 {
+        if resource.size == 0 {
             return Err(Error::ZeroLength)?;
         }
+        resource.initial_response = resource.initial_response;
 
-        {
-            let mut connections = connections.lock().await;
-            connections.push(conn);
-        }
-
-        Ok(Self {
-            inner: Arc::new(inner),
-        })
+        Ok(resource)
     }
 
     pub fn size(&self) -> u64 {
-        self.inner.size
-    }
-}
-
-impl ResourceInner {
-    pub(crate) async fn borrow_conn(&self, offset: u64) -> Result<Conn, Report> {
-        let mut conns = self.connections.lock().await;
-        let candidate =
-            conns.iter().enumerate().find_map(
-                |(i, conn)| {
-                    if conn.offset == offset {
-                        Some(i)
-                    } else {
-                        None
-                    }
-                },
-            );
-
-        match candidate {
-            Some(index) => {
-                let conn = conns.remove(index);
-                tracing::debug!("{:?}: re-using", conn);
-                Ok(conn)
-            }
-            None => {
-                drop(conns);
-                Ok(self.new_conn(offset).await?)
-            }
-        }
+        self.size
     }
 
-    async fn new_conn(&self, offset: u64) -> Result<Conn, Report> {
+    pub fn into_read_at(mut self) -> impl ReadAt {
+        let initial_response =
+            self.initial_response
+                .take()
+                .map(|res| -> (u64, Box<dyn AsyncRead + Unpin>) {
+                    let reader =
+                        Box::new(res.bytes_stream().map_err(make_io_error).into_async_read());
+                    (0, reader)
+                });
+        let size = self.size;
+        let source = Arc::new(self);
+
+        BufReaderAt::new(ReadAtWrapper::new(source, size, initial_response))
+    }
+
+    async fn request(&self, offset: u64) -> Result<reqwest::Response, eyre::Error> {
         let range = format!("bytes={}-", offset);
         let req = self
             .client
@@ -120,34 +95,25 @@ impl ResourceInner {
             .header("range", range)
             .build()?;
         let res = self.client.execute(req).await?;
-        let conn = Conn::new(res, offset);
-        tracing::debug!("{:?}", conn);
-        Ok(conn)
-    }
-
-    pub(crate) async fn return_conn(&self, conn: Conn) {
-        // TODO: expire old conns
-        let mut connections = self.connections.lock().await;
-        connections.push(conn)
+        Ok(res)
     }
 }
 
 #[async_trait(?Send)]
 impl GetReaderAt for Resource {
-    type Reader = ResourceReader;
+    type Reader = Box<dyn AsyncRead + Unpin>;
 
-    async fn get_reader_at(&self, offset: u64) -> std::io::Result<Self::Reader> {
-        if offset > self.inner.size {
+    async fn get_reader_at(self: &Arc<Self>, offset: u64) -> std::io::Result<Self::Reader> {
+        if offset > self.size {
             Err(make_io_error(Error::ReadAfterEnd {
-                resource_end: self.inner.size,
+                resource_end: self.size,
                 requested: offset,
             }))?
         } else {
-            Ok(ResourceReader::new(self.inner.clone(), offset))
+            let res = self.request(offset).await.map_err(make_io_error)?;
+            Ok(Box::new(
+                res.bytes_stream().map_err(make_io_error).into_async_read(),
+            ))
         }
-    }
-
-    fn size(&self) -> u64 {
-        self.inner.size
     }
 }
