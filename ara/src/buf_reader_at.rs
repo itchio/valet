@@ -3,6 +3,7 @@ use async_trait::async_trait;
 use bytes::{Bytes, BytesMut};
 use futures::lock::Mutex;
 use lru_time_cache::LruCache;
+use std::io;
 
 pub struct BufReaderAt<R>
 where
@@ -55,8 +56,7 @@ where
     R: ReadAt,
 {
     async fn read_at(&self, offset: u64, buf: &mut [u8]) -> std::io::Result<usize> {
-        let page_info = offset.page_info(self.layout);
-
+        let page_info = self.layout.page_at(offset).map_err(make_io_error)?;
         let read_size = std::cmp::min(buf.len(), page_info.remaining() as usize);
 
         let mut cache = self.cache.lock().await;
@@ -88,14 +88,55 @@ where
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+fn make_io_error<E: std::error::Error + Send + Sync + 'static>(e: E) -> io::Error {
+    io::Error::new(io::ErrorKind::Other, e)
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 struct PageLayout {
     resource_size: u64,
     page_size: u64,
 }
 
+#[derive(Debug, thiserror::Error)]
+enum PageError {
+    #[error("out of bounds: requested offset {requested} > resource size {resource_size}")]
+    OutOfBounds { requested: u64, resource_size: u64 },
+}
+
+impl PageLayout {
+    /// Returns information for the page at a given offset, or an error
+    /// if out of bounds.
+    fn page_at(self, offset: u64) -> Result<PageInfo, PageError> {
+        if offset > self.resource_size {
+            return Err(PageError::OutOfBounds {
+                requested: offset,
+                resource_size: self.resource_size,
+            });
+        }
+
+        let number = offset / self.page_size;
+        let offset_in_page = offset - number * self.page_size;
+
+        let end = (number + 1) * self.page_size;
+        let size = if end > self.resource_size {
+            let page_start = number * self.page_size;
+            self.resource_size - page_start
+        } else {
+            self.page_size
+        };
+
+        Ok(PageInfo {
+            number,
+            offset_in_page,
+            size,
+            layout: self,
+        })
+    }
+}
+
 /// Page-aware position information
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 struct PageInfo {
     /// Number of the page. For 1024-byte pages, page 0
     /// is bytes 0..1024, page 1 is bytes 1024..2048, etc.
@@ -129,28 +170,93 @@ impl PageInfo {
     }
 }
 
-trait GetPageInfo: Sized {
-    fn page_info(self, layout: PageLayout) -> PageInfo;
-}
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use pretty_assertions::assert_eq;
 
-impl GetPageInfo for u64 {
-    fn page_info(self, layout: PageLayout) -> PageInfo {
-        let number = self / layout.page_size;
-        let offset_in_page = self - number * layout.page_size;
-
-        let end = (number + 1) * layout.page_size;
-        let size = if end > layout.resource_size {
-            let page_start = number * layout.page_size;
-            layout.resource_size - page_start
-        } else {
-            layout.page_size
+    #[test]
+    fn test_page_layout() {
+        let layout = PageLayout {
+            page_size: 100,
+            resource_size: 328,
         };
 
-        PageInfo {
-            number,
-            offset_in_page,
-            size,
-            layout,
-        }
+        assert!(layout.page_at(0).is_ok());
+        assert!(layout.page_at(128).is_ok());
+        assert!(layout.page_at(328).is_ok());
+
+        assert!(layout.page_at(329).is_err());
+        assert!(layout.page_at(350).is_err());
+
+        assert_eq!(
+            layout.page_at(0).unwrap(),
+            PageInfo {
+                number: 0,
+                offset_in_page: 0,
+                size: 100,
+                layout,
+            }
+        );
+
+        assert_eq!(
+            layout.page_at(99).unwrap(),
+            PageInfo {
+                number: 0,
+                offset_in_page: 99,
+                size: 100,
+                layout,
+            }
+        );
+
+        assert_eq!(
+            layout.page_at(100).unwrap(),
+            PageInfo {
+                number: 1,
+                offset_in_page: 0,
+                size: 100,
+                layout,
+            }
+        );
+
+        assert_eq!(
+            layout.page_at(150).unwrap(),
+            PageInfo {
+                number: 1,
+                offset_in_page: 50,
+                size: 100,
+                layout,
+            }
+        );
+
+        assert_eq!(
+            layout.page_at(199).unwrap(),
+            PageInfo {
+                number: 1,
+                offset_in_page: 99,
+                size: 100,
+                layout,
+            }
+        );
+
+        assert_eq!(
+            layout.page_at(300).unwrap(),
+            PageInfo {
+                number: 3,
+                offset_in_page: 0,
+                size: 28,
+                layout,
+            }
+        );
+
+        assert_eq!(
+            layout.page_at(328).unwrap(),
+            PageInfo {
+                number: 3,
+                offset_in_page: 28,
+                size: 28,
+                layout,
+            }
+        );
     }
 }
