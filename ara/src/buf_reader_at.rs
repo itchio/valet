@@ -24,7 +24,8 @@ pub struct BufReaderAtOpts {
 impl Default for BufReaderAtOpts {
     fn default() -> Self {
         Self {
-            page_size: 256 * 1024, // 256 KiB
+            // page_size: 256 * 1024, // 256 KiB
+            page_size: 1000,
             max_cached_pages: 32,
         }
     }
@@ -57,12 +58,12 @@ where
 {
     async fn read_at(&self, offset: u64, buf: &mut [u8]) -> std::io::Result<usize> {
         let page_info = self.layout.page_at(offset).map_err(make_io_error)?;
-        tracing::trace!("asked for {:?}, page info is {:?}", offset, page_info);
+        tracing::trace!(">> read(offset = {}, page = {:?})", offset, page_info);
         let read_size = std::cmp::min(buf.len(), page_info.remaining() as usize);
 
         let mut cache = self.cache.lock().await;
         if let Some(page_bytes) = cache.get(&page_info.number) {
-            tracing::trace!("cached read, read_size={}", read_size);
+            tracing::trace!("  (cached read of size {})", read_size);
             for i in 0..read_size {
                 buf[i] = page_bytes[page_info.offset_in_page as usize + i];
             }
@@ -72,14 +73,13 @@ where
             unsafe {
                 page_bytes.set_len(page_info.size as _);
             }
+            tracing::trace!("  (fetching page {})", page_info.number);
             self.inner
                 .read_at_exact(page_info.page_start(), page_bytes.as_mut())
                 .await?;
 
-            tracing::trace!("fresh read, read_size={}", read_size);
             for i in 0..read_size {
                 buf[i] = page_bytes[page_info.offset_in_page as usize + i];
-                tracing::trace!("buf[i] = {:x}", buf[i]);
             }
 
             cache.insert(page_info.number, page_bytes.into());
@@ -170,7 +170,7 @@ impl PageInfo {
     /// Returns the offset at which this page starts in the resouce
     /// Page 2 starts at offset 2048 (for 1024-byte pages).
     fn page_start(self) -> u64 {
-        self.number * self.size
+        self.number * self.layout.page_size
     }
 }
 

@@ -85,7 +85,7 @@ impl Resource {
         let source = Arc::new(self);
 
         let r = ReadAtWrapper::new(source, size, initial_response);
-        // let r = BufReaderAt::new(r);
+        let r = BufReaderAt::new(r);
         r
     }
 

@@ -86,12 +86,27 @@ async fn main() -> eyre::Result<()> {
 
                 let mut header_slice = vec![0u8; 1024];
                 let mut n: usize = 0;
-                n += source
-                    .read_at(f.entry.header_offset, &mut header_slice[..])
-                    .await?;
 
-                let (remaining, local_header) =
-                    rc_zip::LocalFileHeaderRecord::parse(&header_slice[..n]).unwrap();
+                let (remaining, local_header) = loop {
+                    n += source
+                        .read_at(f.entry.header_offset, &mut header_slice[n..])
+                        .await?;
+
+                    match rc_zip::LocalFileHeaderRecord::parse(&header_slice[..n]) {
+                        Ok(res) => {
+                            break res;
+                        }
+                        Err(nom::Err::Incomplete(_)) => {
+                            if n >= header_slice.len() {
+                                panic!("local header more than 1024 bytes")
+                            };
+                            continue;
+                        }
+                        Err(e) => {
+                            panic!("local header parse error: {}", e);
+                        }
+                    }
+                };
                 tracing::debug!("lfhr = {:#?}", local_header);
 
                 let consumed = header_slice.offset(remaining);
