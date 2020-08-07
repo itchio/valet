@@ -1,10 +1,10 @@
+use ara::{range_reader::RangeReader, ReadAt};
 use argh::FromArgs;
 use futures::io::AsyncReadExt;
-use htfs::async_read_at::*;
 use humansize::{file_size_opts, FileSize};
 use nom::Offset;
 use rc_zip::{ArchiveReaderResult, EntryContents, Method};
-use std::io::Cursor;
+use std::{io::Cursor, sync::Arc};
 use tokio::io::AsyncWriteExt;
 use url::Url;
 
@@ -45,14 +45,14 @@ async fn main() -> eyre::Result<()> {
     color_eyre::install().unwrap();
 
     let args: Args = argh::from_env();
-    let mut ra = htfs::Resource::new(args.url).await?.into_async_read_at();
+    let source = Arc::new(htfs::Resource::new(args.url).await?.into_read_at());
 
     let mut buf = vec![0u8; 1024];
 
-    let mut ar = rc_zip::ArchiveReader::new(ra.size());
+    let mut ar = rc_zip::ArchiveReader::new(source.size());
     let archive = loop {
         if let Some(offset) = ar.wants_read() {
-            let n = ra.read_at(offset, &mut buf[..]).await?;
+            let n = source.read_at(offset, &mut buf[..]).await?;
             let mut cursor = Cursor::new(&buf[..n]);
             ar.read(&mut cursor)?;
         }
@@ -86,7 +86,7 @@ async fn main() -> eyre::Result<()> {
 
                 let mut header_slice = vec![0u8; 1024];
                 let mut n: usize = 0;
-                n += ra
+                n += source
                     .read_at(f.entry.header_offset, &mut header_slice[..])
                     .await?;
 
@@ -102,13 +102,12 @@ async fn main() -> eyre::Result<()> {
                 tracing::debug!("data offset = {}", data_offset);
                 tracing::debug!("compressed size = {}", f.entry.compressed_size);
 
-                let sr = htfs::async_read_at::AsyncSectionReader::new(
-                    ra,
-                    data_offset as u64,
-                    f.entry.compressed_size.into(),
+                let mut range_reader = RangeReader::new(
+                    source.clone(),
+                    data_offset..(data_offset + f.entry.compressed_size),
                 )?;
 
-                let bsr = futures::io::BufReader::new(sr);
+                let bsr = futures::io::BufReader::new(&mut range_reader);
                 let mut decoder = async_compression::futures::bufread::DeflateDecoder::new(bsr);
 
                 let mut out_path = out_dir.clone();
@@ -134,8 +133,6 @@ async fn main() -> eyre::Result<()> {
                     total.file_size(file_size_opts::BINARY).unwrap(),
                     out_path.display()
                 );
-
-                ra = decoder.into_inner().into_inner().into_inner();
             }
         }
     }

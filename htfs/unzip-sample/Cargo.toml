@@ -6,6 +6,7 @@ edition = "2018"
 
 [dependencies]
 rc-zip = { path = "./rc-zip" }
+ara = { path = "../../ara" }
 tokio = { version = "0.2.22", features = ["full"] }
 argh = "0.1.3"
 url = "2.1.1"
