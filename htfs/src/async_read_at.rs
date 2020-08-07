@@ -105,6 +105,14 @@ where
             len,
         })
     }
+
+    pub fn into_inner(self) -> R {
+        match self.state {
+            State::Idle((r, _internal_buf)) => r,
+            State::Pending(_) => todo!(),
+            State::Transitional => unreachable!(),
+        }
+    }
 }
 
 impl<R> AsyncRead for AsyncSectionReader<R>
@@ -141,7 +149,7 @@ where
                         buf[i] = internal_buf[i]
                     }
                     let n = n as u64;
-                    self.offset -= n;
+                    self.offset += n;
                     self.len -= n;
                 }
                 self.state = State::Idle((inner, internal_buf));
