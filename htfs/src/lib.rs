@@ -50,20 +50,15 @@ impl Resource {
             initial_response: None,
         };
 
-        let res = resource.request(0).await?;
-        // TODO: switch back to res.content_length()
-        if let Some(header) = res.headers().get("content-length") {
-            if let Ok(header) = header.to_str() {
-                if let Ok(size) = header.parse() {
-                    resource.size = size;
-                }
-            }
-        };
+        let initial_response = resource.request(0).await?;
+        if let Some(size) = initial_response.content_length() {
+            resource.size = size;
+        }
 
         if resource.size == 0 {
             return Err(Error::ZeroLength)?;
         }
-        resource.initial_response = resource.initial_response;
+        resource.initial_response = Some(initial_response);
 
         Ok(resource)
     }
@@ -85,7 +80,7 @@ impl Resource {
         let source = Arc::new(self);
 
         let r = ReadAtWrapper::new(source, size, initial_response);
-        // let r = BufReaderAt::new(r);
+        let r = BufReaderAt::new(r);
         r
     }
 

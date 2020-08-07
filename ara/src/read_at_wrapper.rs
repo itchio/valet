@@ -34,7 +34,7 @@ impl<Source> ReadAtWrapper<Source>
 where
     Source: GetReaderAt,
 {
-    pub const DEFAULT_MAX_HEADS: usize = 2;
+    pub const DEFAULT_MAX_HEADS: usize = 3;
 
     pub fn new(
         source: Arc<Source>,
@@ -43,7 +43,9 @@ where
     ) -> Self {
         let mut heads: VecDeque<Head<Source::Reader>> = Default::default();
         if let Some((offset, reader)) = initial_head.take() {
-            heads.push_back(Head { offset, reader });
+            let head = Head { offset, reader };
+            tracing::debug!("{:?}: initial", head);
+            heads.push_back(head);
         }
 
         Self {
@@ -90,7 +92,7 @@ where
         // and expired heads are popped from the front, which effectively
         // functions as a cache with LRU (least-recently used) eviction policy
         heads.push_back(head);
-        if heads.len() >= self.max_heads {
+        if heads.len() > self.max_heads {
             heads.pop_front();
         }
     }

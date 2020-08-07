@@ -89,7 +89,7 @@ async fn main() -> eyre::Result<()> {
 
                 let (remaining, local_header) = loop {
                     n += source
-                        .read_at(f.entry.header_offset, &mut header_slice[n..])
+                        .read_at(f.entry.header_offset + n as u64, &mut header_slice[n..])
                         .await?;
                     tracing::debug!("n is now: {}", n);
 
