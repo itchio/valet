@@ -84,21 +84,23 @@ async fn main() -> eyre::Result<()> {
                 tracing::debug!("is deflate!");
                 tracing::debug!("header offset = {}", f.entry.header_offset);
 
-                let mut header_slice = vec![0u8; 1024];
+                let mut header_slice = vec![0u8; 8 * 1024];
                 let mut n: usize = 0;
 
                 let (remaining, local_header) = loop {
                     n += source
                         .read_at(f.entry.header_offset, &mut header_slice[n..])
                         .await?;
+                    tracing::debug!("n is now: {}", n);
 
                     match rc_zip::LocalFileHeaderRecord::parse(&header_slice[..n]) {
                         Ok(res) => {
                             break res;
                         }
-                        Err(nom::Err::Incomplete(_)) => {
+                        Err(nom::Err::Incomplete(needed)) => {
+                            tracing::debug!("needed = {:?}", needed);
                             if n >= header_slice.len() {
-                                panic!("local header more than 1024 bytes")
+                                panic!("local header more than {} bytes", header_slice.len())
                             };
                             continue;
                         }
